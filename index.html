@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16161D">
+<title>Chair — Salon Booking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#16161D;
+  --paper:#F5F2F7;
+  --card:#FFFFFF;
+  --rose:#D6246E;
+  --rose-soft:#FCE9F1;
+  --teal:#12907A;
+  --teal-soft:#E2F3EF;
+  --muted:#6E6B7B;
+  --line:#E3DFE9;
+  --shadow:0 1px 2px rgba(22,22,29,.06), 0 8px 24px rgba(22,22,29,.06);
+  --r:14px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);color:var(--ink);
+  font-family:'Instrument Sans',system-ui,sans-serif;
+  font-size:16px;line-height:1.45;
+  padding-bottom:env(safe-area-inset-bottom);
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:800;letter-spacing:-.02em;margin:0}
+h1{font-size:30px;line-height:1.05}
+h2{font-size:21px;line-height:1.15}
+h3{font-size:16px;font-weight:600;letter-spacing:-.01em}
+.mono{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.sm{font-size:13px}
+.center{text-align:center}
+.hidden{display:none !important}
+
+/* layout */
+.screen{display:none;max-width:560px;margin:0 auto;padding:18px 16px 96px}
+.screen.on{display:block}
+.topbar{display:flex;align-items:center;gap:12px;margin-bottom:18px;min-height:34px}
+.back{background:none;border:0;font-size:22px;line-height:1;padding:4px 8px 4px 0;color:var(--ink);cursor:pointer}
+
+/* cards */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow);margin-bottom:12px}
+.row{display:flex;align-items:center;gap:12px}
+.row.between{justify-content:space-between}
+.grow{flex:1;min-width:0}
+.stack>*+*{margin-top:10px}
+
+/* forms */
+label{display:block;font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--muted);margin-bottom:5px}
+input,select,textarea{
+  width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:10px;
+  background:var(--card);font:inherit;color:var(--ink);
+}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
+.field+.field{margin-top:12px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* buttons */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;padding:14px 16px;border-radius:11px;border:1px solid transparent;
+  background:var(--ink);color:#fff;font:inherit;font-weight:600;cursor:pointer;
+}
+.btn:active{transform:translateY(1px)}
+.btn.rose{background:var(--rose)}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn.sm{width:auto;padding:8px 13px;font-size:13px;border-radius:9px}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.linkbtn{background:none;border:0;color:var(--rose);font:inherit;font-weight:600;cursor:pointer;padding:6px 0}
+
+/* pills / chips */
+.chip{
+  display:inline-flex;align-items:center;gap:6px;padding:9px 13px;border-radius:999px;
+  border:1px solid var(--line);background:var(--card);font-size:14px;cursor:pointer;
+}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.tag{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.03em}
+.tag.rose{background:var(--rose-soft);color:var(--rose)}
+.tag.teal{background:var(--teal-soft);color:var(--teal)}
+
+/* logo bubble */
+.logo{width:52px;height:52px;border-radius:13px;object-fit:cover;background:var(--rose-soft);flex:none;
+  display:flex;align-items:center;justify-content:center;font-family:'Bricolage Grotesque';font-weight:800;color:var(--rose);font-size:19px}
+.logo.lg{width:72px;height:72px;border-radius:18px;font-size:26px}
+
+/* SIGNATURE: the chair timeline */
+.timeline{position:relative;display:flex;gap:8px;overflow-x:auto;padding-bottom:8px}
+.gutter{flex:none;width:46px;position:relative}
+.gutter .mark{position:absolute;left:0;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);transform:translateY(-6px)}
+.col{flex:none;width:132px;position:relative;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.col .head{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--line);padding:8px 10px;font-size:12px;font-weight:600;z-index:2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.colbody{position:relative}
+.hourline{position:absolute;left:0;right:0;border-top:1px solid var(--line);pointer-events:none}
+.bk{position:absolute;left:5px;right:5px;border-radius:9px;overflow:hidden;border:1px solid var(--ink);cursor:pointer}
+.bk .seg{position:absolute;left:0;right:0}
+.bk .seg.active{background:var(--ink)}
+.bk .seg.passive{
+  background:repeating-linear-gradient(135deg,var(--teal-soft) 0 5px,#fff 5px 10px);
+  border-top:1px dashed var(--teal);border-bottom:1px dashed var(--teal);
+}
+.bk .lbl{position:relative;z-index:2;color:#fff;font-size:11px;font-weight:600;padding:5px 7px;line-height:1.25;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+.bk .freetag{position:absolute;z-index:2;font-size:9px;font-weight:700;color:var(--teal);letter-spacing:.06em;text-transform:uppercase}
+
+/* tabbar */
+.tabbar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);
+  display:flex;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:40}
+.tabbar button{flex:1;background:none;border:0;font:inherit;font-size:11px;color:var(--muted);padding:6px 2px;cursor:pointer;font-weight:600}
+.tabbar button .ic{display:block;font-size:19px;line-height:1.3}
+.tabbar button.on{color:var(--rose)}
+
+/* misc */
+.empty{border:1px dashed var(--line);border-radius:var(--r);padding:28px 18px;text-align:center;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:var(--ink);color:#fff;
+  padding:11px 17px;border-radius:11px;font-size:14px;z-index:90;max-width:88vw;box-shadow:var(--shadow)}
+.sheet{position:fixed;inset:0;background:rgba(22,22,29,.45);display:flex;align-items:flex-end;z-index:80}
+.sheet .inner{background:var(--paper);width:100%;max-width:560px;margin:0 auto;border-radius:20px 20px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto}
+.spin{width:22px;height:22px;border:2px solid var(--line);border-top-color:var(--rose);border-radius:50%;animation:sp .7s linear infinite;margin:22px auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+.seglist{display:flex;flex-wrap:wrap;gap:6px}
+.segchip{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12px;background:var(--card)}
+.segchip.passive{border-style:dashed;border-color:var(--teal);color:var(--teal)}
+.slotgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px}
+.slot{padding:11px 4px;border:1px solid var(--line);border-radius:10px;background:var(--card);
+  font-family:'JetBrains Mono',monospace;font-size:14px;cursor:pointer;text-align:center}
+.slot.on{background:var(--rose);color:#fff;border-color:var(--rose)}
+hr{border:0;border-top:1px solid var(--line);margin:18px 0}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+</style>
+</head>
+<body>
+
+<!-- ============ AUTH ============ -->
+<section id="s-auth" class="screen">
+  <div style="padding:36px 0 22px">
+    <div class="eyebrow">Salon booking, South Africa</div>
+    <h1 style="margin-top:10px">Chair</h1>
+    <p class="muted" style="margin-top:8px">Book a stylist, not just a slot. Salons keep the chair full while colour processes.</p>
+  </div>
+  <div class="card">
+    <div class="field"><label for="a-email">Email</label><input id="a-email" type="email" autocomplete="email" placeholder="you@example.co.za"></div>
+    <div class="field"><label for="a-pass">Password</label><input id="a-pass" type="password" autocomplete="current-password" placeholder="At least 6 characters"></div>
+    <div class="field" id="a-namewrap"><label for="a-name">Your name</label><input id="a-name" placeholder="Full name"></div>
+    <div class="field" id="a-rolewrap">
+      <label>I am</label>
+      <div class="chips">
+        <button type="button" class="chip on" data-role="client">Booking a salon</button>
+        <button type="button" class="chip" data-role="salon">Running a salon</button>
+      </div>
+    </div>
+    <div style="margin-top:16px"><button class="btn rose" id="a-go">Create account</button></div>
+    <div class="center" style="margin-top:6px"><button class="linkbtn" id="a-toggle">I already have an account</button></div>
+    <p id="a-err" class="sm hidden" style="color:var(--rose);margin:10px 0 0"></p>
+  </div>
+</section>
+
+<!-- ============ SALON ONBOARDING ============ -->
+<section id="s-onboard" class="screen">
+  <div class="topbar"><div><div class="eyebrow">Step 1 of 1</div><h2>Set up your salon</h2></div></div>
+  <div class="card">
+    <div class="row" style="margin-bottom:14px">
+      <div class="logo lg" id="ob-logo">?</div>
+      <div class="grow">
+        <button class="btn ghost sm" id="ob-logopick">Upload logo</button>
+        <div class="sm muted" style="margin-top:5px">Square image works best</div>
+      </div>
+    </div>
+    <input type="file" id="ob-logofile" accept="image/*" class="hidden">
+    <div class="field"><label for="ob-name">Salon name</label><input id="ob-name" placeholder="Curl &amp; Co"></div>
+    <div class="field"><label for="ob-addr">Business address</label><textarea id="ob-addr" rows="2" placeholder="12 Florida Road, Morningside, Durban"></textarea></div>
+    <div class="field"><label for="ob-phone">WhatsApp number</label><input id="ob-phone" placeholder="+27 82 000 0000"></div>
+    <div class="field">
+      <label>Map position — clients search by distance</label>
+      <button class="btn ghost" id="ob-loc">Use my current location</button>
+      <div class="two" style="margin-top:10px">
+        <input id="ob-lat" class="mono" placeholder="Latitude" inputmode="decimal">
+        <input id="ob-lng" class="mono" placeholder="Longitude" inputmode="decimal">
+      </div>
+      <div class="sm muted" style="margin-top:6px">Stand in your salon and tap the button, or paste coordinates from Google Maps.</div>
+    </div>
+    <div class="field"><label for="ob-dep">Booking deposit (R) — 0 for none</label><input id="ob-dep" class="mono" type="number" min="0" value="0"></div>
+    <div style="margin-top:16px"><button class="btn rose" id="ob-save">Open the salon</button></div>
+    <p id="ob-err" class="sm hidden" style="color:var(--rose);margin:10px 0 0"></p>
+  </div>
+</section>
+
+<!-- ============ SALON: CALENDAR ============ -->
+<section id="s-cal" class="screen">
+  <div class="topbar between row">
+    <div><div class="eyebrow" id="cal-eyebrow">Today</div><h2 id="cal-date">—</h2></div>
+    <div class="row" style="gap:6px">
+      <button class="btn ghost sm" id="cal-prev">‹</button>
+      <button class="btn ghost sm" id="cal-today">Today</button>
+      <button class="btn ghost sm" id="cal-next">›</button>
+    </div>
+  </div>
+  <div class="row sm muted" style="gap:14px;margin-bottom:10px">
+    <span class="row" style="gap:6px"><span style="width:13px;height:13px;border-radius:4px;background:var(--ink);display:inline-block"></span>Stylist busy</span>
+    <span class="row" style="gap:6px"><span style="width:13px;height:13px;border-radius:4px;border:1px dashed var(--teal);background:var(--teal-soft);display:inline-block"></span>Chair free</span>
+  </div>
+  <div id="cal-wrap"></div>
+</section>
+
+<!-- ============ SALON: SERVICES ============ -->
+<section id="s-svc" class="screen">
+  <div class="topbar between row"><h2>Services</h2><button class="btn rose sm" id="svc-add">Add service</button></div>
+  <p class="sm muted" style="margin-top:-8px">Split a service into stages. Marking the processing stage as <b>chair free</b> lets another client book that gap.</p>
+  <div id="svc-list" style="margin-top:14px"></div>
+</section>
+
+<!-- ============ SALON: STYLISTS ============ -->
+<section id="s-sty" class="screen">
+  <div class="topbar between row"><h2>Stylists</h2><button class="btn rose sm" id="sty-add">Add stylist</button></div>
+  <div id="sty-list" style="margin-top:6px"></div>
+</section>
+
+<!-- ============ SALON: SETTINGS ============ -->
+<section id="s-set" class="screen">
+  <div class="topbar"><h2>Salon</h2></div>
+  <div class="card">
+    <div class="row" style="margin-bottom:14px">
+      <div class="logo lg" id="set-logo">?</div>
+      <div class="grow"><button class="btn ghost sm" id="set-logopick">Change logo</button></div>
+    </div>
+    <input type="file" id="set-logofile" accept="image/*" class="hidden">
+    <div class="field"><label for="set-name">Salon name</label><input id="set-name"></div>
+    <div class="field"><label for="set-addr">Business address</label><textarea id="set-addr" rows="2"></textarea></div>
+    <div class="field"><label for="set-phone">WhatsApp number</label><input id="set-phone"></div>
+    <div class="two" style="margin-top:12px">
+      <div><label for="set-lat">Latitude</label><input id="set-lat" class="mono"></div>
+      <div><label for="set-lng">Longitude</label><input id="set-lng" class="mono"></div>
+    </div>
+    <button class="btn ghost sm" id="set-loc" style="margin-top:10px">Use my current location</button>
+    <div class="field" style="margin-top:12px"><label for="set-dep">Booking deposit (R)</label><input id="set-dep" class="mono" type="number" min="0"></div>
+    <div style="margin-top:16px"><button class="btn rose" id="set-save">Save changes</button></div>
+  </div>
+  <button class="btn ghost" id="set-out" style="margin-top:8px">Sign out</button>
+</section>
+
+<!-- ============ CLIENT: SEARCH ============ -->
+<section id="s-find" class="screen">
+  <div style="padding:6px 0 16px">
+    <div class="eyebrow">Find a chair</div>
+    <h1 style="margin-top:8px">Salons near you</h1>
+  </div>
+  <div class="card">
+    <button class="btn" id="f-loc">Use my location</button>
+    <div style="margin-top:14px">
+      <label for="f-rad">Search radius — <span class="mono" id="f-radlbl">15 km</span></label>
+      <input type="range" id="f-rad" min="1" max="100" value="15" step="1" style="padding:0">
+    </div>
+    <div class="field" style="margin-top:12px"><label for="f-q">Or search by name</label><input id="f-q" placeholder="Salon name"></div>
+  </div>
+  <div id="f-list"></div>
+</section>
+
+<!-- ============ CLIENT: SALON PAGE ============ -->
+<section id="s-salon" class="screen">
+  <div class="topbar"><button class="back" id="sa-back">←</button><div class="eyebrow">Salon</div></div>
+  <div class="card">
+    <div class="row">
+      <div class="logo lg" id="sa-logo">?</div>
+      <div class="grow"><h2 id="sa-name">—</h2><div class="sm muted" id="sa-addr"></div><div class="sm muted mono" id="sa-dist"></div></div>
+    </div>
+    <div id="sa-dep" class="sm hidden" style="margin-top:12px"></div>
+  </div>
+  <h3 style="margin:20px 0 10px">Choose your services</h3>
+  <div id="sa-svcs"></div>
+  <div id="sa-bar" class="hidden" style="position:sticky;bottom:78px;padding-top:10px">
+    <button class="btn rose" id="sa-next"><span id="sa-nextlbl">Continue</span></button>
+  </div>
+</section>
+
+<!-- ============ CLIENT: PICK TIME ============ -->
+<section id="s-book" class="screen">
+  <div class="topbar"><button class="back" id="bk-back">←</button><div><div class="eyebrow">Pick a time</div><h2 id="bk-svcname">—</h2></div></div>
+  <div class="card">
+    <label>Stylist</label>
+    <div class="chips" id="bk-stylists"></div>
+  </div>
+  <div class="card">
+    <label>Day</label>
+    <div class="chips" id="bk-days"></div>
+  </div>
+  <div class="card">
+    <label>Available start times</label>
+    <div id="bk-slots"></div>
+  </div>
+  <div id="bk-bar" class="hidden" style="position:sticky;bottom:78px;padding-top:10px">
+    <button class="btn rose" id="bk-confirm">Confirm booking</button>
+  </div>
+</section>
+
+<!-- ============ CLIENT: MY BOOKINGS ============ -->
+<section id="s-mine" class="screen">
+  <div class="topbar"><h2>My bookings</h2></div>
+  <div id="mine-list"></div>
+  <hr>
+  <button class="btn ghost" id="mine-out">Sign out</button>
+</section>
+
+<!-- ============ TAB BARS ============ -->
+<nav class="tabbar hidden" id="tabs-salon">
+  <button data-go="s-cal" class="on"><span class="ic">▤</span>Calendar</button>
+  <button data-go="s-svc"><span class="ic">✂</span>Services</button>
+  <button data-go="s-sty"><span class="ic">☺</span>Stylists</button>
+  <button data-go="s-set"><span class="ic">⚙</span>Salon</button>
+</nav>
+<nav class="tabbar hidden" id="tabs-client">
+  <button data-go="s-find" class="on"><span class="ic">◎</span>Find</button>
+  <button data-go="s-mine"><span class="ic">▤</span>My bookings</button>
+</nav>
+
+<div id="sheet-host"></div>
+<div id="boot" class="spin"></div>
+
+<script type="module">
+/* ═══════════════════════════════════════════════════════════
+   FIREBASE — replace this block with your own project config
+   ═══════════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyDWC4UrzA_ggY9wH25ipYfbGzayTJ5ZNtk",
+  authDomain: "salonchair-9043a.firebaseapp.com",
+  projectId: "salonchair-9043a",
+  storageBucket: "salonchair-9043a.firebasestorage.app",
+  messagingSenderId: "392481573327",
+  appId: "1:392481573327:web:9b5725dfbdb702b2feeaba"
+};
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc,
+  collection, getDocs, query, where, orderBy, serverTimestamp, arrayUnion
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/* ═══════════ tiny helpers ═══════════ */
+const $ = id => document.getElementById(id);
+const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const DOW = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const DOWLBL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+const hm2min = s => { const [h, m] = String(s).split(":").map(Number); return h * 60 + (m || 0); };
+const min2hm = m => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+const dayKey = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const keyToDate = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+const rands = n => "R" + Number(n || 0).toFixed(0);
+
+function toast(msg) {
+  const t = el("div", "toast", esc(msg));
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+
+function initials(name) {
+  return String(name || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0] || "").join("").toUpperCase() || "?";
+}
+
+function paintLogo(node, salon) {
+  if (salon && salon.logoUrl) {
+    node.style.backgroundImage = "url(" + salon.logoUrl + ")";
+    node.style.backgroundSize = "cover";
+    node.style.backgroundPosition = "center";
+    node.textContent = "";
+  } else {
+    node.style.backgroundImage = "";
+    node.textContent = initials(salon && salon.name);
+  }
+}
+
+/* Haversine distance in km */
+function distKm(a, b, c, d) {
+  const R = 6371, rad = x => x * Math.PI / 180;
+  const dLa = rad(c - a), dLo = rad(d - b);
+  const h = Math.sin(dLa / 2) ** 2 + Math.cos(rad(a)) * Math.cos(rad(c)) * Math.sin(dLo / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/* Downscale an uploaded logo to a data URL that fits comfortably in a Firestore doc */
+function fileToDataUrl(file, size) {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onerror = () => rej(new Error("Could not read that image"));
+    fr.onload = () => {
+      const img = new Image();
+      img.onerror = () => rej(new Error("That file is not an image"));
+      img.onload = () => {
+        const s = Math.min(img.width, img.height);
+        const cv = document.createElement("canvas");
+        cv.width = cv.height = size;
+        const cx = cv.getContext("2d");
+        cx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+        res(cv.toDataURL("image/jpeg", 0.82));
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+function getPosition() {
+  return new Promise((res, rej) => {
+    if (!navigator.geolocation) return rej(new Error("This device cannot share a location"));
+    navigator.geolocation.getCurrentPosition(
+      p => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => rej(new Error("Location permission was declined")),
+      { enableHighAccuracy: true, timeout: 12000 }
+    );
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AVAILABILITY ENGINE — the heart of the app
+   A service is a list of segments: active (stylist at the chair)
+   and passive (colour processing — chair blocked, stylist free).
+   Only ACTIVE minutes consume a stylist's time.
+   ═══════════════════════════════════════════════════════════ */
+
+/** Flatten selected services into one ordered segment list. */
+function combineSegments(services) {
+  const out = [];
+  for (const s of services) for (const seg of (s.segments || [])) out.push({ type: seg.type, mins: Number(seg.mins) || 0 });
+  return out;
+}
+
+/** Total wall-clock minutes the client is at the salon. */
+function totalMins(segments) {
+  return segments.reduce((a, s) => a + s.mins, 0);
+}
+
+/**
+ * Minute ranges the stylist is actually occupied, given a start time.
+ * Stored as {s,e} maps, not [s,e] pairs — Firestore rejects nested arrays.
+ */
+function activeBlocks(startMin, segments) {
+  const raw = [];
+  let t = startMin;
+  for (const seg of segments) {
+    if (seg.type === "active" && seg.mins > 0) raw.push({ s: t, e: t + seg.mins });
+    t += seg.mins;
+  }
+  // merge touching ranges so back-to-back active stages become one block
+  raw.sort((x, y) => x.s - y.s);
+  const merged = [];
+  for (const r of raw) {
+    const last = merged[merged.length - 1];
+    if (last && r.s <= last.e) last.e = Math.max(last.e, r.e);
+    else merged.push({ s: r.s, e: r.e });
+  }
+  return merged;
+}
+
+const overlaps = (a, b) => a.s < b.e && b.s < a.e;
+
+/**
+ * Every start time a stylist can take this service on this day.
+ * @param {string} key      day key, YYYY-MM-DD
+ * @param {object} stylist  needs .hours and .timeOff
+ * @param {array}  segments combined segment list
+ * @param {array}  busyList {s,e} ranges already taken on that stylist's clock
+ * @param {number} step     granularity in minutes
+ */
+function findSlots(key, stylist, segments, busyList, step) {
+  step = step || 15;
+  const date = keyToDate(key);
+  const hrs = (stylist.hours || {})[DOW[date.getDay()]];
+  if (!hrs || hrs.off) return [];
+
+  const open = hm2min(hrs.open), close = hm2min(hrs.close);
+  const span = totalMins(segments);
+  if (span <= 0) return [];
+
+  const busy = (busyList || []).slice();
+  for (const off of (stylist.timeOff || [])) {
+    if (off.date === key) busy.push({ s: hm2min(off.start), e: hm2min(off.end) });
+  }
+
+  // don't offer times that have already passed today
+  const now = new Date();
+  const past = key === dayKey(now) ? now.getHours() * 60 + now.getMinutes() : -1;
+
+  const out = [];
+  for (let t = open; t + span <= close; t += step) {
+    if (t <= past) continue;
+    const blocks = activeBlocks(t, segments);
+    let ok = true;
+    for (const bl of blocks) { for (const bu of busy) { if (overlaps(bl, bu)) { ok = false; break; } } if (!ok) break; }
+    if (ok) out.push(t);
+  }
+  return out;
+}
+
+const DEFAULT_HOURS = {
+  sun: { off: true, open: "09:00", close: "14:00" },
+  mon: { off: false, open: "09:00", close: "17:00" },
+  tue: { off: false, open: "09:00", close: "17:00" },
+  wed: { off: false, open: "09:00", close: "17:00" },
+  thu: { off: false, open: "09:00", close: "18:00" },
+  fri: { off: false, open: "09:00", close: "18:00" },
+  sat: { off: false, open: "08:00", close: "14:00" }
+};
+
+/* Starter catalogue — a new salon is usable in under a minute */
+const STARTER_SERVICES = [
+  { name: "Dry cut", price: 180, segments: [{ type: "active", mins: 30 }] },
+  { name: "Cut & blow-dry", price: 320, segments: [{ type: "active", mins: 60 }] },
+  { name: "Blow-dry", price: 200, segments: [{ type: "active", mins: 30 }] },
+  { name: "Root touch-up", price: 550, segments: [{ type: "active", mins: 25 }, { type: "passive", mins: 35 }, { type: "active", mins: 30 }] },
+  { name: "Full head highlights", price: 950, segments: [{ type: "active", mins: 45 }, { type: "passive", mins: 45 }, { type: "active", mins: 45 }] },
+  { name: "Relaxer", price: 480, segments: [{ type: "active", mins: 25 }, { type: "passive", mins: 20 }, { type: "active", mins: 30 }] },
+  { name: "Box braids", price: 700, segments: [{ type: "active", mins: 180 }] },
+  { name: "Treatment", price: 260, segments: [{ type: "active", mins: 15 }, { type: "passive", mins: 20 }, { type: "active", mins: 15 }] }
+];
+
+/* ═══════════ app state ═══════════ */
+const S = {
+  uid: null, role: null, profile: null,
+  salonId: null, salon: null,
+  services: [], stylists: [],
+  calDate: new Date(),
+  here: null, radiusKm: 15, results: [],
+  pick: { salon: null, services: [], stylistId: null, dayKey: null, startMin: null }
+};
+
+/* ═══════════ navigation ═══════════ */
+function show(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === id));
+  document.querySelectorAll(".tabbar button").forEach(b => b.classList.toggle("on", b.dataset.go === id));
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll(".tabbar button").forEach(b => {
+  b.addEventListener("click", () => { show(b.dataset.go); if (b.dataset.go === "s-mine") loadMyBookings(); });
+});
+
+function sheet(title, bodyNode, onSave, saveLabel) {
+  const host = $("sheet-host");
+  const wrap = el("div", "sheet");
+  const inner = el("div", "inner");
+  inner.appendChild(el("h2", null, esc(title)));
+  const body = el("div", null); body.style.marginTop = "14px";
+  body.appendChild(bodyNode);
+  inner.appendChild(body);
+  const save = el("button", "btn rose", esc(saveLabel || "Save"));
+  save.style.marginTop = "16px";
+  const cancel = el("button", "btn ghost", "Cancel");
+  cancel.style.marginTop = "8px";
+  inner.appendChild(save); inner.appendChild(cancel);
+  wrap.appendChild(inner); host.appendChild(wrap);
+  const close = () => wrap.remove();
+  cancel.addEventListener("click", close);
+  wrap.addEventListener("click", e => { if (e.target === wrap) close(); });
+  save.addEventListener("click", async () => {
+    save.disabled = true;
+    try { const ok = await onSave(); if (ok !== false) close(); }
+    catch (err) { toast(err.message || "That did not save"); }
+    save.disabled = false;
+  });
+  return close;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH
+   ═══════════════════════════════════════════════════════════ */
+let authMode = "signup", authRole = "client";
+
+$("a-rolewrap").addEventListener("click", e => {
+  const c = e.target.closest("[data-role]"); if (!c) return;
+  authRole = c.dataset.role;
+  $("a-rolewrap").querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === c));
+});
+
+$("a-toggle").addEventListener("click", () => {
+  authMode = authMode === "signup" ? "signin" : "signup";
+  const up = authMode === "signup";
+  $("a-go").textContent = up ? "Create account" : "Sign in";
+  $("a-toggle").textContent = up ? "I already have an account" : "I need an account";
+  $("a-namewrap").classList.toggle("hidden", !up);
+  $("a-rolewrap").classList.toggle("hidden", !up);
+});
+
+$("a-go").addEventListener("click", async () => {
+  const email = $("a-email").value.trim();
+  const pass = $("a-pass").value;
+  const name = $("a-name").value.trim();
+  const err = $("a-err");
+  err.classList.add("hidden");
+
+  if (!email || !pass) { err.textContent = "Enter an email address and a password."; err.classList.remove("hidden"); return; }
+  if (authMode === "signup" && !name) { err.textContent = "Enter your name so the salon knows who is booking."; err.classList.remove("hidden"); return; }
+
+  $("a-go").disabled = true;
+  try {
+    if (authMode === "signup") {
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      await setDoc(doc(db, "users", cred.user.uid), {
+        name, email, role: authRole, salonId: null, createdAt: serverTimestamp()
+      });
+    } else {
+      await signInWithEmailAndPassword(auth, email, pass);
+    }
+  } catch (e2) {
+    const m = String(e2.code || e2.message);
+    err.textContent =
+      m.includes("email-already-in-use") ? "That email already has an account. Switch to signing in." :
+      m.includes("weak-password") ? "Passwords need at least 6 characters." :
+      m.includes("invalid-credential") || m.includes("wrong-password") ? "That email and password do not match." :
+      m.includes("user-not-found") ? "No account with that email yet." :
+      m.includes("invalid-email") ? "That email address is not valid." :
+      "Could not sign in. Check the connection and try again.";
+    err.classList.remove("hidden");
+  }
+  $("a-go").disabled = false;
+});
+
+$("set-out").addEventListener("click", () => signOut(auth));
+$("mine-out").addEventListener("click", () => signOut(auth));
+
+onAuthStateChanged(auth, async user => {
+  $("boot").classList.add("hidden");
+  $("tabs-salon").classList.add("hidden");
+  $("tabs-client").classList.add("hidden");
+
+  if (!user) { S.uid = null; show("s-auth"); return; }
+  S.uid = user.uid;
+
+  const snap = await getDoc(doc(db, "users", user.uid));
+  S.profile = snap.exists() ? snap.data() : { role: "client", name: user.email };
+  S.role = S.profile.role || "client";
+
+  if (S.role === "salon") {
+    S.salonId = S.profile.salonId || null;
+    if (!S.salonId) { show("s-onboard"); return; }
+    await loadSalonWorkspace();
+  } else {
+    $("tabs-client").classList.remove("hidden");
+    show("s-find");
+    searchSalons();
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   SALON ONBOARDING
+   ═══════════════════════════════════════════════════════════ */
+let obLogo = null;
+
+$("ob-logopick").addEventListener("click", () => $("ob-logofile").click());
+$("ob-logofile").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { obLogo = await fileToDataUrl(f, 256); paintLogo($("ob-logo"), { logoUrl: obLogo }); }
+  catch (err) { toast(err.message); }
+});
+
+$("ob-loc").addEventListener("click", async () => {
+  try { const p = await getPosition(); $("ob-lat").value = p.lat.toFixed(6); $("ob-lng").value = p.lng.toFixed(6); toast("Location set"); }
+  catch (err) { toast(err.message); }
+});
+
+$("ob-save").addEventListener("click", async () => {
+  const err = $("ob-err"); err.classList.add("hidden");
+  const name = $("ob-name").value.trim();
+  const lat = parseFloat($("ob-lat").value), lng = parseFloat($("ob-lng").value);
+
+  if (!name) { err.textContent = "Your salon needs a name."; err.classList.remove("hidden"); return; }
+  if (!isFinite(lat) || !isFinite(lng)) { err.textContent = "Set the map position so clients can find you by distance."; err.classList.remove("hidden"); return; }
+
+  $("ob-save").disabled = true;
+  try {
+    const ref = await addDoc(collection(db, "salons"), {
+      name,
+      address: $("ob-addr").value.trim(),
+      phone: $("ob-phone").value.trim(),
+      logoUrl: obLogo || null,
+      lat, lng,
+      deposit: Number($("ob-dep").value) || 0,
+      ownerUid: S.uid,
+      active: true,
+      createdAt: serverTimestamp()
+    });
+
+    // seed the starter catalogue and a first stylist so the calendar is usable now
+    for (const s of STARTER_SERVICES) await addDoc(collection(db, "salons", ref.id, "services"), { ...s, active: true });
+    await addDoc(collection(db, "salons", ref.id, "stylists"), {
+      name: S.profile.name || "Me", active: true, hours: DEFAULT_HOURS, timeOff: [], serviceIds: null
+    });
+
+    await updateDoc(doc(db, "users", S.uid), { salonId: ref.id });
+    S.salonId = ref.id;
+    await loadSalonWorkspace();
+    toast("Salon is live");
+  } catch (e2) {
+    err.textContent = "Could not create the salon: " + (e2.message || "unknown error");
+    err.classList.remove("hidden");
+  }
+  $("ob-save").disabled = false;
+});
+
+/* ═══════════════════════════════════════════════════════════
+   SALON WORKSPACE
+   ═══════════════════════════════════════════════════════════ */
+async function loadSalonWorkspace() {
+  const sd = await getDoc(doc(db, "salons", S.salonId));
+  S.salon = { id: S.salonId, ...sd.data() };
+  await Promise.all([loadServices(), loadStylists()]);
+  $("tabs-salon").classList.remove("hidden");
+  fillSettings();
+  show("s-cal");
+  renderCalendar();
+}
+
+async function loadServices() {
+  const q1 = await getDocs(collection(db, "salons", S.salonId, "services"));
+  S.services = q1.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderServices();
+}
+
+async function loadStylists() {
+  const q1 = await getDocs(collection(db, "salons", S.salonId, "stylists"));
+  S.stylists = q1.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderStylists();
+}
+
+/* ─────────── Services ─────────── */
+function segRow(seg, idx, onChange, onRemove) {
+  const wrap = el("div", "card");
+  wrap.style.padding = "12px";
+  wrap.style.marginBottom = "8px";
+  wrap.innerHTML =
+    '<div class="row between" style="margin-bottom:8px">' +
+    '<span class="eyebrow">Stage ' + (idx + 1) + '</span>' +
+    '<button class="linkbtn sm" data-x="1">Remove</button></div>' +
+    '<div class="two">' +
+    '<select data-t="1"><option value="active">Stylist working</option><option value="passive">Chair free — processing</option></select>' +
+    '<input type="number" min="5" step="5" data-m="1" class="mono" placeholder="Minutes"></div>';
+  wrap.querySelector('[data-t]').value = seg.type;
+  wrap.querySelector('[data-m]').value = seg.mins;
+  wrap.querySelector('[data-t]').addEventListener("change", e => { seg.type = e.target.value; onChange(); });
+  wrap.querySelector('[data-m]').addEventListener("input", e => { seg.mins = Number(e.target.value) || 0; onChange(); });
+  wrap.querySelector('[data-x]').addEventListener("click", onRemove);
+  return wrap;
+}
+
+function serviceEditor(existing) {
+  const svc = existing
+    ? JSON.parse(JSON.stringify(existing))
+    : { name: "", price: 0, segments: [{ type: "active", mins: 30 }] };
+
+  const box = el("div");
+  const form = el("div");
+  form.innerHTML =
+    '<div class="field"><label for="e-n">Service name</label><input id="e-n"></div>' +
+    '<div class="field"><label for="e-p">Price (R)</label><input id="e-p" type="number" min="0" class="mono"></div>' +
+    '<div style="margin:18px 0 8px"><label>Stages</label>' +
+    '<div class="sm muted" style="margin-bottom:10px">A chair-free stage is time the client waits but the stylist is not needed. The calendar will offer that gap to another client.</div></div>';
+  box.appendChild(form);
+  const segHost = el("div"); box.appendChild(segHost);
+  const add = el("button", "btn ghost sm", "Add stage"); box.appendChild(add);
+  const summary = el("div", "sm muted"); summary.style.marginTop = "12px"; box.appendChild(summary);
+
+  const draw = () => {
+    segHost.innerHTML = "";
+    svc.segments.forEach((seg, i) => segHost.appendChild(
+      segRow(seg, i, refresh, () => { svc.segments.splice(i, 1); draw(); })
+    ));
+    refresh();
+  };
+  function refresh() {
+    const total = totalMins(svc.segments);
+    const act = svc.segments.filter(s => s.type === "active").reduce((a, s) => a + s.mins, 0);
+    summary.textContent = "Client is here " + total + " min · stylist is busy " + act + " min · " + (total - act) + " min of chair time freed up";
+  }
+  add.addEventListener("click", () => { svc.segments.push({ type: "active", mins: 15 }); draw(); });
+  draw();
+
+  setTimeout(() => {
+    form.querySelector("#e-n").value = svc.name;
+    form.querySelector("#e-p").value = svc.price;
+  }, 0);
+
+  sheet(existing ? "Edit service" : "New service", box, async () => {
+    svc.name = form.querySelector("#e-n").value.trim();
+    svc.price = Number(form.querySelector("#e-p").value) || 0;
+    if (!svc.name) { toast("Give the service a name"); return false; }
+    svc.segments = svc.segments.filter(s => s.mins > 0);
+    if (!svc.segments.length) { toast("Add at least one stage with minutes"); return false; }
+    const payload = { name: svc.name, price: svc.price, segments: svc.segments, active: true };
+    if (existing) await updateDoc(doc(db, "salons", S.salonId, "services", existing.id), payload);
+    else await addDoc(collection(db, "salons", S.salonId, "services"), payload);
+    await loadServices();
+    toast("Service saved");
+  }, "Save service");
+}
+
+$("svc-add").addEventListener("click", () => serviceEditor(null));
+
+function renderServices() {
+  const host = $("svc-list"); host.innerHTML = "";
+  if (!S.services.length) { host.appendChild(el("div", "empty", "No services yet. Add your first one.")); return; }
+  S.services.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
+    const total = totalMins(s.segments || []);
+    const free = (s.segments || []).filter(x => x.type === "passive").reduce((a, x) => a + x.mins, 0);
+    const c = el("div", "card");
+    c.innerHTML =
+      '<div class="row between"><div class="grow"><h3>' + esc(s.name) + '</h3>' +
+      '<div class="sm muted mono">' + total + ' min · ' + rands(s.price) + '</div></div>' +
+      (free ? '<span class="tag teal">' + free + ' min free</span>' : '') + '</div>' +
+      '<div class="seglist" style="margin-top:10px"></div>' +
+      '<div class="row" style="gap:8px;margin-top:12px"><button class="btn ghost sm" data-e="1">Edit</button>' +
+      '<button class="btn ghost sm" data-d="1">Delete</button></div>';
+    const sl = c.querySelector(".seglist");
+    (s.segments || []).forEach(seg => {
+      sl.appendChild(el("span", "segchip " + seg.type, (seg.type === "passive" ? "processing " : "") + seg.mins + " min"));
+    });
+    c.querySelector('[data-e]').addEventListener("click", () => serviceEditor(s));
+    c.querySelector('[data-d]').addEventListener("click", async () => {
+      if (!confirm("Delete " + s.name + "? Existing bookings keep their details.")) return;
+      await deleteDoc(doc(db, "salons", S.salonId, "services", s.id));
+      await loadServices(); toast("Service deleted");
+    });
+    host.appendChild(c);
+  });
+}
+
+/* ─────────── Stylists ─────────── */
+function stylistEditor(existing) {
+  const st = existing
+    ? JSON.parse(JSON.stringify(existing))
+    : { name: "", hours: JSON.parse(JSON.stringify(DEFAULT_HOURS)), timeOff: [], serviceIds: null, active: true };
+
+  const box = el("div");
+  const nameF = el("div", "field", '<label for="st-n">Name</label><input id="st-n">');
+  box.appendChild(nameF);
+
+  box.appendChild(el("div", null, '<label style="margin-top:18px">Working hours</label>'));
+  DOW.forEach((d, i) => {
+    const h = st.hours[d] || { off: true, open: "09:00", close: "17:00" };
+    st.hours[d] = h;
+    const r = el("div", "card");
+    r.style.padding = "10px 12px"; r.style.marginBottom = "6px";
+    r.innerHTML =
+      '<div class="row" style="gap:10px">' +
+      '<label style="margin:0;width:38px;font-size:13px;color:var(--ink)">' + DOWLBL[i] + '</label>' +
+      '<input type="time" data-o="1" style="padding:8px">' +
+      '<input type="time" data-c="1" style="padding:8px">' +
+      '<button class="chip sm" data-off="1" style="padding:6px 10px;font-size:12px">Closed</button></div>';
+    const o = r.querySelector("[data-o]"), c = r.querySelector("[data-c]"), b = r.querySelector("[data-off]");
+    o.value = h.open; c.value = h.close;
+    const sync = () => { b.classList.toggle("on", !!h.off); o.disabled = c.disabled = !!h.off; };
+    o.addEventListener("input", e => h.open = e.target.value);
+    c.addEventListener("input", e => h.close = e.target.value);
+    b.addEventListener("click", () => { h.off = !h.off; sync(); });
+    sync();
+    box.appendChild(r);
+  });
+
+  box.appendChild(el("div", null, '<label style="margin-top:18px">Services this stylist offers</label>'));
+  const chips = el("div", "chips");
+  const all = el("button", "chip", "Everything");
+  const on = new Set(st.serviceIds || []);
+  const syncAll = () => all.classList.toggle("on", st.serviceIds === null);
+  all.addEventListener("click", () => { st.serviceIds = st.serviceIds === null ? Array.from(on) : null; chips.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", st.serviceIds !== null && on.has(x.dataset.s))); syncAll(); });
+  chips.appendChild(all);
+  S.services.forEach(s => {
+    const ch = el("button", "chip", esc(s.name));
+    ch.dataset.s = s.id;
+    ch.classList.toggle("on", st.serviceIds !== null && on.has(s.id));
+    ch.addEventListener("click", () => {
+      if (st.serviceIds === null) { st.serviceIds = S.services.map(x => x.id); on.clear(); S.services.forEach(x => on.add(x.id)); }
+      if (on.has(s.id)) on.delete(s.id); else on.add(s.id);
+      st.serviceIds = Array.from(on);
+      chips.querySelectorAll("[data-s]").forEach(x => x.classList.toggle("on", on.has(x.dataset.s)));
+      syncAll();
+    });
+    chips.appendChild(ch);
+  });
+  syncAll();
+  box.appendChild(chips);
+
+  setTimeout(() => { nameF.querySelector("#st-n").value = st.name; }, 0);
+
+  sheet(existing ? "Edit stylist" : "Add stylist", box, async () => {
+    st.name = nameF.querySelector("#st-n").value.trim();
+    if (!st.name) { toast("Give the stylist a name"); return false; }
+    const payload = { name: st.name, hours: st.hours, timeOff: st.timeOff || [], serviceIds: st.serviceIds, active: true };
+    if (existing) await updateDoc(doc(db, "salons", S.salonId, "stylists", existing.id), payload);
+    else await addDoc(collection(db, "salons", S.salonId, "stylists"), payload);
+    await loadStylists(); renderCalendar();
+    toast("Stylist saved");
+  }, "Save stylist");
+}
+
+$("sty-add").addEventListener("click", () => stylistEditor(null));
+
+function renderStylists() {
+  const host = $("sty-list"); host.innerHTML = "";
+  if (!S.stylists.length) { host.appendChild(el("div", "empty", "No stylists yet. Add the first chair.")); return; }
+  S.stylists.forEach(st => {
+    const days = DOW.filter(d => st.hours && st.hours[d] && !st.hours[d].off).length;
+    const c = el("div", "card");
+    c.innerHTML =
+      '<div class="row between"><div class="grow"><h3>' + esc(st.name) + '</h3>' +
+      '<div class="sm muted">' + days + ' working days · ' +
+      (st.serviceIds === null || !st.serviceIds ? "all services" : st.serviceIds.length + " services") + '</div></div></div>' +
+      '<div class="row" style="gap:8px;margin-top:12px"><button class="btn ghost sm" data-e="1">Edit</button>' +
+      '<button class="btn ghost sm" data-d="1">Remove</button></div>';
+    c.querySelector('[data-e]').addEventListener("click", () => stylistEditor(st));
+    c.querySelector('[data-d]').addEventListener("click", async () => {
+      if (!confirm("Remove " + st.name + "?")) return;
+      await deleteDoc(doc(db, "salons", S.salonId, "stylists", st.id));
+      await loadStylists(); renderCalendar(); toast("Stylist removed");
+    });
+    host.appendChild(c);
+  });
+}
+
+/* ─────────── Calendar (signature view) ─────────── */
+$("cal-prev").addEventListener("click", () => { S.calDate.setDate(S.calDate.getDate() - 1); renderCalendar(); });
+$("cal-next").addEventListener("click", () => { S.calDate.setDate(S.calDate.getDate() + 1); renderCalendar(); });
+$("cal-today").addEventListener("click", () => { S.calDate = new Date(); renderCalendar(); });
+
+async function fetchDayBookings(salonId, key) {
+  const q1 = query(collection(db, "salons", salonId, "bookings"), where("dayKey", "==", key));
+  const snap = await getDocs(q1);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/* ─────────── Availability mirror ───────────
+   Clients must not read the bookings collection — it holds other people's
+   names and phone numbers. Instead each stylist-day has a public doc holding
+   nothing but busy minute ranges, tagged with the booking they belong to. */
+const availId = (stylistId, key) => stylistId + "__" + key;
+
+async function fetchBusy(salonId, stylistId, key) {
+  try {
+    const d = await getDoc(doc(db, "salons", salonId, "availability", availId(stylistId, key)));
+    return d.exists() ? (d.data().busy || []) : [];
+  } catch (e) { return []; }
+}
+
+async function addBusy(salonId, stylistId, key, blocks, bookingId) {
+  const tagged = blocks.map(b => ({ s: b.s, e: b.e, b: bookingId }));
+  await setDoc(
+    doc(db, "salons", salonId, "availability", availId(stylistId, key)),
+    { stylistId, dayKey: key, busy: arrayUnion(...tagged) },
+    { merge: true }
+  );
+}
+
+async function releaseBusy(salonId, stylistId, key, bookingId) {
+  const ref = doc(db, "salons", salonId, "availability", availId(stylistId, key));
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const kept = (snap.data().busy || []).filter(x => x.b !== bookingId);
+  await setDoc(ref, { stylistId, dayKey: key, busy: kept }, { merge: true });
+}
+
+async function renderCalendar() {
+  const key = dayKey(S.calDate);
+  const d = S.calDate;
+  $("cal-eyebrow").textContent = DOWLBL[d.getDay()] + (key === dayKey(new Date()) ? " · today" : "");
+  $("cal-date").textContent = d.getDate() + " " + MONTHS[d.getMonth()];
+
+  const wrap = $("cal-wrap");
+  wrap.innerHTML = '<div class="spin"></div>';
+
+  let bookings = [];
+  try { bookings = await fetchDayBookings(S.salonId, key); }
+  catch (e) { wrap.innerHTML = '<div class="empty">Could not load the day. Check the connection and pull back to this screen.</div>'; return; }
+
+  const working = S.stylists.filter(st => { const h = (st.hours || {})[DOW[d.getDay()]]; return h && !h.off; });
+  if (!working.length) {
+    wrap.innerHTML = '<div class="empty">Nobody is rostered on this day. Set working hours under Stylists.</div>';
+    return;
+  }
+
+  let open = 24 * 60, close = 0;
+  working.forEach(st => { const h = st.hours[DOW[d.getDay()]]; open = Math.min(open, hm2min(h.open)); close = Math.max(close, hm2min(h.close)); });
+  const PX = 1.5; // pixels per minute
+  const height = (close - open) * PX;
+
+  wrap.innerHTML = "";
+  const tl = el("div", "timeline");
+
+  const gutter = el("div", "gutter");
+  gutter.style.height = (height + 34) + "px";
+  for (let t = Math.ceil(open / 60) * 60; t <= close; t += 60) {
+    const m = el("div", "mark", min2hm(t));
+    m.style.top = (34 + (t - open) * PX) + "px";
+    gutter.appendChild(m);
+  }
+  tl.appendChild(gutter);
+
+  working.forEach(st => {
+    const col = el("div", "col");
+    col.appendChild(el("div", "head", esc(st.name)));
+    const body = el("div", "colbody");
+    body.style.height = height + "px";
+    for (let t = Math.ceil(open / 60) * 60; t <= close; t += 60) {
+      const line = el("div", "hourline");
+      line.style.top = ((t - open) * PX) + "px";
+      body.appendChild(line);
+    }
+
+    bookings.filter(b => b.stylistId === st.id && b.status !== "cancelled").forEach(b => {
+      const bar = el("div", "bk");
+      bar.style.top = ((b.startMin - open) * PX) + "px";
+      bar.style.height = (b.totalMins * PX) + "px";
+
+      let t = 0;
+      (b.segments || []).forEach(seg => {
+        const s = el("div", "seg " + seg.type);
+        s.style.top = (t * PX) + "px";
+        s.style.height = (seg.mins * PX) + "px";
+        if (seg.type === "passive" && seg.mins >= 20) {
+          const tag = el("div", "freetag", "chair free");
+          tag.style.top = ((t + 4) * PX) + "px";
+          tag.style.left = "8px";
+          bar.appendChild(tag);
+        }
+        bar.appendChild(s);
+        t += seg.mins;
+      });
+
+      const lbl = el("div", "lbl",
+        '<span class="mono">' + min2hm(b.startMin) + '</span><br>' + esc(b.clientName) + '<br>' + esc(b.serviceNames));
+      bar.appendChild(lbl);
+      bar.addEventListener("click", () => bookingSheet(b));
+      body.appendChild(bar);
+    });
+
+    col.appendChild(body);
+    tl.appendChild(col);
+  });
+
+  wrap.appendChild(tl);
+
+  const total = bookings.filter(b => b.status !== "cancelled").length;
+  const revenue = bookings.filter(b => b.status !== "cancelled").reduce((a, b) => a + (b.total || 0), 0);
+  const sum = el("div", "card");
+  sum.style.marginTop = "14px";
+  sum.innerHTML = '<div class="row between"><div><div class="eyebrow">Booked today</div><h2>' + total + '</h2></div>' +
+    '<div style="text-align:right"><div class="eyebrow">Expected</div><h2 class="mono">' + rands(revenue) + '</h2></div></div>';
+  wrap.appendChild(sum);
+}
+
+function bookingSheet(b) {
+  const box = el("div");
+  box.innerHTML =
+    '<div class="card"><h3>' + esc(b.clientName) + '</h3>' +
+    '<div class="sm muted">' + esc(b.serviceNames) + '</div>' +
+    '<div class="sm mono" style="margin-top:8px">' + min2hm(b.startMin) + ' – ' + min2hm(b.startMin + b.totalMins) + ' · ' + rands(b.total) + '</div>' +
+    (b.clientPhone ? '<div class="sm muted" style="margin-top:6px">' + esc(b.clientPhone) + '</div>' : '') +
+    (b.depositDue ? '<div class="tag rose" style="margin-top:10px">Deposit ' + rands(b.depositDue) + ' ' + (b.depositPaid ? 'paid' : 'outstanding') + '</div>' : '') +
+    '</div>';
+
+  if (b.clientPhone) {
+    const wa = el("button", "btn ghost", "Send WhatsApp confirmation");
+    wa.addEventListener("click", () => {
+      const num = String(b.clientPhone).replace(/[^0-9]/g, "").replace(/^0/, "27");
+      const msg = "Hi " + b.clientName + ", confirming your booking at " + S.salon.name + " on " +
+        b.dayKey + " at " + min2hm(b.startMin) + " for " + b.serviceNames + ". See you then!";
+      window.open("https://wa.me/" + num + "?text=" + encodeURIComponent(msg), "_blank");
+    });
+    box.appendChild(wa);
+  }
+
+  const cancel = el("button", "btn ghost", "Cancel this booking");
+  cancel.style.marginTop = "8px";
+  cancel.addEventListener("click", async () => {
+    if (!confirm("Cancel this booking? The slot reopens immediately.")) return;
+    await updateDoc(doc(db, "salons", S.salonId, "bookings", b.id), { status: "cancelled" });
+    await releaseBusy(S.salonId, b.stylistId, b.dayKey, b.id);
+    if (b.clientUid) {
+      try { await updateDoc(doc(db, "clients", b.clientUid, "bookings", b.id), { status: "cancelled" }); } catch (e) {}
+    }
+    toast("Booking cancelled");
+    renderCalendar();
+    document.querySelectorAll(".sheet").forEach(s => s.remove());
+  });
+  box.appendChild(cancel);
+
+  sheet("Booking", box, async () => true, "Done");
+}
+
+/* ─────────── Salon settings ─────────── */
+let setLogo = null;
+function fillSettings() {
+  paintLogo($("set-logo"), S.salon);
+  $("set-name").value = S.salon.name || "";
+  $("set-addr").value = S.salon.address || "";
+  $("set-phone").value = S.salon.phone || "";
+  $("set-lat").value = S.salon.lat != null ? S.salon.lat : "";
+  $("set-lng").value = S.salon.lng != null ? S.salon.lng : "";
+  $("set-dep").value = S.salon.deposit || 0;
+}
+$("set-logopick").addEventListener("click", () => $("set-logofile").click());
+$("set-logofile").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { setLogo = await fileToDataUrl(f, 256); paintLogo($("set-logo"), { logoUrl: setLogo }); }
+  catch (err) { toast(err.message); }
+});
+$("set-loc").addEventListener("click", async () => {
+  try { const p = await getPosition(); $("set-lat").value = p.lat.toFixed(6); $("set-lng").value = p.lng.toFixed(6); toast("Location set"); }
+  catch (err) { toast(err.message); }
+});
+$("set-save").addEventListener("click", async () => {
+  const lat = parseFloat($("set-lat").value), lng = parseFloat($("set-lng").value);
+  if (!$("set-name").value.trim()) { toast("Your salon needs a name"); return; }
+  if (!isFinite(lat) || !isFinite(lng)) { toast("Set the map position"); return; }
+  const patch = {
+    name: $("set-name").value.trim(),
+    address: $("set-addr").value.trim(),
+    phone: $("set-phone").value.trim(),
+    lat, lng,
+    deposit: Number($("set-dep").value) || 0
+  };
+  if (setLogo) patch.logoUrl = setLogo;
+  await updateDoc(doc(db, "salons", S.salonId), patch);
+  S.salon = { ...S.salon, ...patch };
+  toast("Changes saved");
+});
+
+/* ═══════════════════════════════════════════════════════════
+   CLIENT — find a salon
+   ═══════════════════════════════════════════════════════════ */
+$("f-rad").addEventListener("input", e => {
+  S.radiusKm = Number(e.target.value);
+  $("f-radlbl").textContent = S.radiusKm + " km";
+  if (S.here) searchSalons();
+});
+$("f-loc").addEventListener("click", async () => {
+  try { S.here = await getPosition(); toast("Location found"); searchSalons(); }
+  catch (err) { toast(err.message); }
+});
+let qTimer = null;
+$("f-q").addEventListener("input", () => { clearTimeout(qTimer); qTimer = setTimeout(searchSalons, 300); });
+
+/**
+ * Firestore has no radius query. We range-query on latitude (one field, no
+ * composite index needed), then filter longitude and true distance in JS.
+ * Fine to a few thousand salons; swap in geohash prefixes beyond that.
+ */
+async function searchSalons() {
+  const host = $("f-list");
+  host.innerHTML = '<div class="spin"></div>';
+  const term = $("f-q").value.trim().toLowerCase();
+
+  try {
+    let docsList;
+    if (S.here) {
+      const dLat = S.radiusKm / 111;
+      const q1 = query(
+        collection(db, "salons"),
+        where("lat", ">=", S.here.lat - dLat),
+        where("lat", "<=", S.here.lat + dLat),
+        orderBy("lat")
+      );
+      docsList = (await getDocs(q1)).docs;
+    } else {
+      docsList = (await getDocs(collection(db, "salons"))).docs;
+    }
+
+    let list = docsList.map(d => ({ id: d.id, ...d.data() })).filter(s => s.active !== false);
+
+    if (S.here) {
+      list = list.map(s => ({ ...s, km: distKm(S.here.lat, S.here.lng, s.lat, s.lng) }))
+        .filter(s => s.km <= S.radiusKm)
+        .sort((a, b) => a.km - b.km);
+    }
+    if (term) list = list.filter(s => String(s.name || "").toLowerCase().includes(term));
+
+    S.results = list;
+    host.innerHTML = "";
+
+    if (!list.length) {
+      host.appendChild(el("div", "empty",
+        S.here ? "No salons within " + S.radiusKm + " km. Widen the radius." : "Share your location to see salons near you."));
+      return;
+    }
+
+    list.forEach(s => {
+      const c = el("div", "card");
+      const row = el("div", "row");
+      const lg = el("div", "logo"); paintLogo(lg, s);
+      const info = el("div", "grow");
+      info.innerHTML = '<h3>' + esc(s.name) + '</h3><div class="sm muted">' + esc(s.address || "") + '</div>' +
+        (s.km != null ? '<div class="sm mono" style="color:var(--rose)">' + s.km.toFixed(1) + ' km away</div>' : '');
+      row.appendChild(lg); row.appendChild(info);
+      c.appendChild(row);
+      c.style.cursor = "pointer";
+      c.addEventListener("click", () => openSalon(s));
+      host.appendChild(c);
+    });
+  } catch (e) {
+    host.innerHTML = '<div class="empty">Could not load salons. Check the connection and try again.</div>';
+  }
+}
+
+/* ─────────── Client: salon page ─────────── */
+$("sa-back").addEventListener("click", () => show("s-find"));
+
+async function openSalon(s) {
+  S.pick = { salon: s, services: [], stylistId: null, dayKey: null, startMin: null };
+  paintLogo($("sa-logo"), s);
+  $("sa-name").textContent = s.name;
+  $("sa-addr").textContent = s.address || "";
+  $("sa-dist").textContent = s.km != null ? s.km.toFixed(1) + " km away" : "";
+  const dep = $("sa-dep");
+  if (s.deposit > 0) { dep.className = "sm"; dep.innerHTML = '<span class="tag rose">' + rands(s.deposit) + ' deposit to hold the slot</span>'; }
+  else dep.className = "sm hidden";
+
+  show("s-salon");
+  const host = $("sa-svcs");
+  host.innerHTML = '<div class="spin"></div>';
+
+  const [svcSnap, stySnap] = await Promise.all([
+    getDocs(collection(db, "salons", s.id, "services")),
+    getDocs(collection(db, "salons", s.id, "stylists"))
+  ]);
+  S.pick.allServices = svcSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.active !== false);
+  S.pick.allStylists = stySnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.active !== false);
+
+  host.innerHTML = "";
+  if (!S.pick.allServices.length) { host.appendChild(el("div", "empty", "This salon has not published a price list yet.")); return; }
+
+  S.pick.allServices.sort((a, b) => a.name.localeCompare(b.name)).forEach(svc => {
+    const total = totalMins(svc.segments || []);
+    const free = (svc.segments || []).filter(x => x.type === "passive").reduce((a, x) => a + x.mins, 0);
+    const c = el("div", "card");
+    c.style.cursor = "pointer";
+    c.innerHTML =
+      '<div class="row between"><div class="grow"><h3>' + esc(svc.name) + '</h3>' +
+      '<div class="sm muted mono">' + total + ' min' + (free ? ' · ' + free + ' min processing' : '') + '</div></div>' +
+      '<div class="mono" style="font-weight:600">' + rands(svc.price) + '</div></div>';
+    c.addEventListener("click", () => {
+      const i = S.pick.services.findIndex(x => x.id === svc.id);
+      if (i >= 0) S.pick.services.splice(i, 1); else S.pick.services.push(svc);
+      c.style.borderColor = S.pick.services.some(x => x.id === svc.id) ? "var(--rose)" : "var(--line)";
+      c.style.background = S.pick.services.some(x => x.id === svc.id) ? "var(--rose-soft)" : "var(--card)";
+      const n = S.pick.services.length;
+      $("sa-bar").classList.toggle("hidden", n === 0);
+      const mins = totalMins(combineSegments(S.pick.services));
+      const price = S.pick.services.reduce((a, x) => a + (x.price || 0), 0);
+      $("sa-nextlbl").textContent = "Continue · " + mins + " min · " + rands(price);
+    });
+    host.appendChild(c);
+  });
+}
+
+$("sa-next").addEventListener("click", () => {
+  if (!S.pick.services.length) return;
+  $("bk-svcname").textContent = S.pick.services.map(s => s.name).join(" + ");
+  S.pick.stylistId = null; S.pick.dayKey = null; S.pick.startMin = null;
+  $("bk-bar").classList.add("hidden");
+  renderStylistChips();
+  renderDayChips();
+  $("bk-slots").innerHTML = '<div class="empty">Pick a stylist and a day.</div>';
+  show("s-book");
+});
+$("bk-back").addEventListener("click", () => show("s-salon"));
+
+function eligibleStylists() {
+  const wanted = S.pick.services.map(s => s.id);
+  return (S.pick.allStylists || []).filter(st =>
+    st.serviceIds == null || wanted.every(id => st.serviceIds.includes(id))
+  );
+}
+
+function renderStylistChips() {
+  const host = $("bk-stylists"); host.innerHTML = "";
+  const list = eligibleStylists();
+  if (!list.length) { host.appendChild(el("div", "sm muted", "No stylist at this salon does all of those services together. Try booking them separately.")); return; }
+  list.forEach(st => {
+    const ch = el("button", "chip", esc(st.name));
+    ch.addEventListener("click", () => {
+      S.pick.stylistId = st.id;
+      host.querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === ch));
+      loadSlots();
+    });
+    host.appendChild(ch);
+  });
+}
+
+function renderDayChips() {
+  const host = $("bk-days"); host.innerHTML = "";
+  const base = new Date();
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(base); d.setDate(base.getDate() + i);
+    const k = dayKey(d);
+    const ch = el("button", "chip", '<span>' + DOWLBL[d.getDay()] + '</span> <b class="mono">' + d.getDate() + '</b>');
+    ch.addEventListener("click", () => {
+      S.pick.dayKey = k;
+      host.querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === ch));
+      loadSlots();
+    });
+    host.appendChild(ch);
+  }
+}
+
+async function loadSlots() {
+  const host = $("bk-slots");
+  S.pick.startMin = null;
+  $("bk-bar").classList.add("hidden");
+
+  if (!S.pick.stylistId || !S.pick.dayKey) { host.innerHTML = '<div class="empty">Pick a stylist and a day.</div>'; return; }
+  host.innerHTML = '<div class="spin"></div>';
+
+  const stylist = (S.pick.allStylists || []).find(s => s.id === S.pick.stylistId);
+  const segments = combineSegments(S.pick.services);
+
+  const busy = await fetchBusy(S.pick.salon.id, S.pick.stylistId, S.pick.dayKey);
+  const slots = findSlots(S.pick.dayKey, stylist, segments, busy, 15);
+
+  host.innerHTML = "";
+  if (!slots.length) {
+    host.appendChild(el("div", "empty", stylist.name + " is fully booked that day. Try another day or stylist."));
+    return;
+  }
+  const grid = el("div", "slotgrid");
+  slots.forEach(t => {
+    const b = el("button", "slot", min2hm(t));
+    b.addEventListener("click", () => {
+      S.pick.startMin = t;
+      grid.querySelectorAll(".slot").forEach(x => x.classList.toggle("on", x === b));
+      $("bk-bar").classList.remove("hidden");
+    });
+    grid.appendChild(b);
+  });
+  host.appendChild(grid);
+}
+
+/* ─────────── Confirm the booking ─────────── */
+$("bk-confirm").addEventListener("click", async () => {
+  const p = S.pick;
+  if (!p.salon || !p.stylistId || !p.dayKey || p.startMin == null) return;
+
+  const btn = $("bk-confirm");
+  btn.disabled = true;
+
+  try {
+    const segments = combineSegments(p.services);
+    const span = totalMins(segments);
+    const blocks = activeBlocks(p.startMin, segments);
+    const stylist = p.allStylists.find(s => s.id === p.stylistId);
+
+    // re-check right before writing — someone may have taken the slot while we sat here
+    const fresh = await fetchBusy(p.salon.id, p.stylistId, p.dayKey);
+    const stillOpen = findSlots(p.dayKey, stylist, segments, fresh, 15).includes(p.startMin);
+    if (!stillOpen) {
+      toast("That slot was just taken. Pick another.");
+      await loadSlots();
+      btn.disabled = false;
+      return;
+    }
+
+    const total = p.services.reduce((a, s) => a + (s.price || 0), 0);
+    const booking = {
+      salonId: p.salon.id,
+      salonName: p.salon.name,
+      ownerUid: p.salon.ownerUid || null,
+      stylistId: p.stylistId,
+      stylistName: stylist.name,
+      clientUid: S.uid,
+      clientName: S.profile.name || "Client",
+      clientPhone: S.profile.phone || "",
+      serviceIds: p.services.map(s => s.id),
+      serviceNames: p.services.map(s => s.name).join(" + "),
+      segments,
+      blocks,
+      dayKey: p.dayKey,
+      startMin: p.startMin,
+      totalMins: span,
+      total,
+      depositDue: p.salon.deposit || 0,
+      depositPaid: false,
+      status: "confirmed",
+      createdAt: serverTimestamp()
+    };
+
+    const ref = await addDoc(collection(db, "salons", p.salon.id, "bookings"), booking);
+    await addBusy(p.salon.id, p.stylistId, p.dayKey, blocks, ref.id);
+    try { await setDoc(doc(db, "clients", S.uid, "bookings", ref.id), booking); } catch (e) {}
+
+    toast("Booked · " + min2hm(p.startMin));
+    show("s-mine");
+    loadMyBookings();
+  } catch (e) {
+    toast("Could not save that booking. Try again.");
+  }
+  btn.disabled = false;
+});
+
+/* ─────────── Client: my bookings ─────────── */
+async function loadMyBookings() {
+  const host = $("mine-list");
+  host.innerHTML = '<div class="spin"></div>';
+  try {
+    const snap = await getDocs(query(collection(db, "clients", S.uid, "bookings"), orderBy("dayKey", "desc")));
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    host.innerHTML = "";
+    if (!list.length) { host.appendChild(el("div", "empty", "Nothing booked yet. Find a salon near you.")); return; }
+
+    const today = dayKey(new Date());
+    list.forEach(b => {
+      const past = b.dayKey < today;
+      const c = el("div", "card");
+      c.style.opacity = past || b.status === "cancelled" ? ".55" : "1";
+      c.innerHTML =
+        '<div class="row between"><div class="grow">' +
+        '<div class="eyebrow">' + esc(b.salonName) + '</div>' +
+        '<h3 style="margin-top:4px">' + esc(b.serviceNames) + '</h3>' +
+        '<div class="sm muted">with ' + esc(b.stylistName) + '</div>' +
+        '<div class="sm mono" style="margin-top:6px">' + esc(b.dayKey) + ' · ' + min2hm(b.startMin) + ' – ' + min2hm(b.startMin + b.totalMins) + '</div>' +
+        '</div><div class="mono" style="font-weight:600">' + rands(b.total) + '</div></div>' +
+        (b.status === "cancelled" ? '<div class="tag rose" style="margin-top:10px">Cancelled</div>' :
+          (b.depositDue ? '<div class="tag rose" style="margin-top:10px">Deposit ' + rands(b.depositDue) + ' ' + (b.depositPaid ? 'paid' : 'due') + '</div>' : ''));
+
+      if (!past && b.status !== "cancelled") {
+        const x = el("button", "btn ghost sm", "Cancel booking");
+        x.style.marginTop = "12px";
+        x.addEventListener("click", async () => {
+          if (!confirm("Cancel this booking?")) return;
+          await updateDoc(doc(db, "clients", S.uid, "bookings", b.id), { status: "cancelled" });
+          try { await updateDoc(doc(db, "salons", b.salonId, "bookings", b.id), { status: "cancelled" }); } catch (e) {}
+          try { await releaseBusy(b.salonId, b.stylistId, b.dayKey, b.id); } catch (e) {}
+          toast("Booking cancelled");
+          loadMyBookings();
+        });
+        c.appendChild(x);
+      }
+      host.appendChild(c);
+    });
+  } catch (e) {
+    host.innerHTML = '<div class="empty">Could not load your bookings. Check the connection and try again.</div>';
+  }
+}
+
+/* ═══════════ PWA ═══════════ */
+if ("serviceWorker" in navigator) {
+  const sw = `
+    const C='chair-v1';
+    self.addEventListener('install',e=>self.skipWaiting());
+    self.addEventListener('activate',e=>self.clients.claim());
+    self.addEventListener('fetch',e=>{
+      if(e.request.method!=='GET')return;
+      e.respondWith(fetch(e.request).then(r=>{
+        const c=r.clone(); caches.open(C).then(x=>x.put(e.request,c)); return r;
+      }).catch(()=>caches.match(e.request)));
+    });`;
+  const url = URL.createObjectURL(new Blob([sw], { type: "text/javascript" }));
+  navigator.serviceWorker.register(url).catch(() => {});
+}
+
+const manifest = {
+  name: "Chair — Salon Booking", short_name: "Chair", start_url: ".", display: "standalone",
+  background_color: "#F5F2F7", theme_color: "#16161D",
+  icons: [{ src: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="42" fill="#16161D"/><text x="96" y="128" font-size="104" font-family="sans-serif" font-weight="800" fill="#D6246E" text-anchor="middle">C</text></svg>'), sizes: "192x192", type: "image/svg+xml" }]
+};
+const mlink = document.createElement("link");
+mlink.rel = "manifest";
+mlink.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: "application/json" }));
+document.head.appendChild(mlink);
+</script>
+</body>
+</html>

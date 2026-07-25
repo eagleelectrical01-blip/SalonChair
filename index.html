@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#16161D">
+<meta name="color-scheme" content="light only">
 <title>Chair — Salon Booking</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -625,7 +626,9 @@ $("a-go").addEventListener("click", async () => {
       m.includes("invalid-credential") || m.includes("wrong-password") ? "That email and password do not match." :
       m.includes("user-not-found") ? "No account with that email yet." :
       m.includes("invalid-email") ? "That email address is not valid." :
-      "Could not sign in. Check the connection and try again.";
+      m.includes("operation-not-allowed") ? "Email sign-in is switched off for this project. Enable Email/Password under Authentication." :
+      m.includes("network-request-failed") ? "No connection to Firebase. Check the network and try again." :
+      "Could not sign in — " + m;
     err.classList.remove("hidden");
   }
   $("a-go").disabled = false;
@@ -937,7 +940,14 @@ $("cal-next").addEventListener("click", () => { S.calDate.setDate(S.calDate.getD
 $("cal-today").addEventListener("click", () => { S.calDate = new Date(); renderCalendar(); });
 
 async function fetchDayBookings(salonId, key) {
-  const q1 = query(collection(db, "salons", salonId, "bookings"), where("dayKey", "==", key));
+  // The ownerUid filter is not optional. Security rules are not filters:
+  // the rule checks resource.data.ownerUid, so the query must constrain the
+  // same field or Firestore rejects the whole read as permission-denied.
+  const q1 = query(
+    collection(db, "salons", salonId, "bookings"),
+    where("ownerUid", "==", S.uid),
+    where("dayKey", "==", key)
+  );
   const snap = await getDocs(q1);
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
@@ -983,7 +993,7 @@ async function renderCalendar() {
 
   let bookings = [];
   try { bookings = await fetchDayBookings(S.salonId, key); }
-  catch (e) { wrap.innerHTML = '<div class="empty">Could not load the day. Check the connection and pull back to this screen.</div>'; return; }
+  catch (e) { wrap.innerHTML = '<div class="empty">Could not load the day &mdash; ' + esc(e.code || e.message) + '</div>'; return; }
 
   const working = S.stylists.filter(st => { const h = (st.hours || {})[DOW[d.getDay()]]; return h && !h.off; });
   if (!working.length) {
@@ -1210,7 +1220,7 @@ async function searchSalons() {
       host.appendChild(c);
     });
   } catch (e) {
-    host.innerHTML = '<div class="empty">Could not load salons. Check the connection and try again.</div>';
+    host.innerHTML = '<div class="empty">Could not load salons &mdash; ' + esc(e.code || e.message) + '</div>';
   }
 }
 
@@ -1449,7 +1459,7 @@ async function loadMyBookings() {
       host.appendChild(c);
     });
   } catch (e) {
-    host.innerHTML = '<div class="empty">Could not load your bookings. Check the connection and try again.</div>';
+    host.innerHTML = '<div class="empty">Could not load your bookings &mdash; ' + esc(e.code || e.message) + '</div>';
   }
 }
 

@@ -964,18 +964,18 @@ $("cal-today").addEventListener("click", () => {
 });
 
 /**
- * One query per month, not per day. Equality on ownerUid plus a range on
- * dayKey — that pair needs a composite index (ownerUid ASC, dayKey ASC).
+ * One query per month, not per day. Two equality filters — Firestore serves
+ * these from its automatic single-field indexes, so no composite index is
+ * needed and nothing breaks while an index builds.
  */
+const monthKeyOf = k => String(k).slice(0, 7);
+
 async function fetchMonthBookings(salonId, monthDate) {
-  const y = monthDate.getFullYear(), m = monthDate.getMonth();
-  const from = y + "-" + String(m + 1).padStart(2, "0") + "-01";
-  const to = y + "-" + String(m + 1).padStart(2, "0") + "-31";
+  const mk = monthDate.getFullYear() + "-" + String(monthDate.getMonth() + 1).padStart(2, "0");
   const q1 = query(
     collection(db, "salons", salonId, "bookings"),
     where("ownerUid", "==", S.uid),
-    where("dayKey", ">=", from),
-    where("dayKey", "<=", to)
+    where("monthKey", "==", mk)
   );
   const snap = await getDocs(q1);
   const byDay = {};
@@ -1388,6 +1388,7 @@ function rescheduleSheet(b) {
       stylistId: pick.stylistId,
       stylistName: pick.stylistName,
       dayKey: pick.dayKey,
+      monthKey: monthKeyOf(pick.dayKey),
       startMin: pick.startMin,
       blocks,
       status: "confirmed",
@@ -1736,6 +1737,7 @@ $("bk-confirm").addEventListener("click", async () => {
       segments,
       blocks,
       dayKey: p.dayKey,
+      monthKey: monthKeyOf(p.dayKey),
       startMin: p.startMin,
       totalMins: span,
       total,
@@ -1773,8 +1775,6 @@ async function refreshBadge() {
 }
 
 async function acceptProposal(b, prop) {
-  const st = { id: prop.stylistId, name: prop.stylistName };
-
   // Verify the offer is still real before taking it.
   const stySnap = await getDoc(doc(db, "salons", b.salonId, "stylists", prop.stylistId));
   if (!stySnap.exists()) { toast("That stylist is no longer available"); return; }
@@ -1793,7 +1793,7 @@ async function acceptProposal(b, prop) {
     clientUid: S.uid, clientName: b.clientName, clientPhone: b.clientPhone || "",
     serviceIds: b.serviceIds, serviceNames: b.serviceNames,
     segments: b.segments, blocks,
-    dayKey: prop.dayKey, startMin: prop.startMin,
+    dayKey: prop.dayKey, monthKey: monthKeyOf(prop.dayKey), startMin: prop.startMin,
     totalMins: b.totalMins, total: b.total,
     depositDue: b.depositDue || 0, depositPaid: false,
     status: "confirmed", clientUnread: false,

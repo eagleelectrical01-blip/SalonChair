@@ -135,6 +135,21 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .slot{padding:11px 4px;border:1px solid var(--line);border-radius:10px;background:var(--card);
   font-family:'JetBrains Mono',monospace;font-size:14px;cursor:pointer;text-align:center}
 .slot.on{background:var(--rose);color:#fff;border-color:var(--rose)}
+/* month grid */
+.mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.mhead{font-family:'JetBrains Mono',monospace;font-size:10px;text-align:center;color:var(--muted);padding:4px 0}
+.mcell{aspect-ratio:1;border:1px solid var(--line);border-radius:9px;background:var(--card);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:2px}
+.mcell .n{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600}
+.mcell .cnt{font-size:9px;font-weight:700;color:var(--rose);line-height:1}
+.mcell.dim{opacity:.3}
+.mcell.closed{background:transparent;border-style:dashed}
+.mcell.today{box-shadow:inset 0 0 0 2px var(--rose)}
+.mcell.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.mcell.on .cnt{color:#fff}
+.prop{border:1px solid var(--rose);background:var(--rose-soft);border-radius:10px;padding:10px 12px;margin-top:8px;cursor:pointer}
+.badge{display:inline-block;min-width:17px;padding:1px 5px;border-radius:999px;background:var(--rose);color:#fff;
+  font-size:10px;font-weight:700;line-height:15px;margin-left:4px}
 hr{border:0;border-top:1px solid var(--line);margin:18px 0}
 @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
 </style>
@@ -198,17 +213,19 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
 <!-- ============ SALON: CALENDAR ============ -->
 <section id="s-cal" class="screen">
   <div class="topbar between row">
-    <div><div class="eyebrow" id="cal-eyebrow">Today</div><h2 id="cal-date">—</h2></div>
+    <div><div class="eyebrow" id="cal-eyebrow">Month</div><h2 id="cal-month-lbl">—</h2></div>
     <div class="row" style="gap:6px">
       <button class="btn ghost sm" id="cal-prev">‹</button>
       <button class="btn ghost sm" id="cal-today">Today</button>
       <button class="btn ghost sm" id="cal-next">›</button>
     </div>
   </div>
-  <div class="row sm muted" style="gap:14px;margin-bottom:10px">
+  <div id="cal-month"></div>
+  <div class="row sm muted" style="gap:14px;margin:20px 0 10px">
     <span class="row" style="gap:6px"><span style="width:13px;height:13px;border-radius:4px;background:var(--ink);display:inline-block"></span>Stylist busy</span>
     <span class="row" style="gap:6px"><span style="width:13px;height:13px;border-radius:4px;border:1px dashed var(--teal);background:var(--teal-soft);display:inline-block"></span>Chair free</span>
   </div>
+  <div id="cal-daylbl" class="eyebrow" style="margin-bottom:8px"></div>
   <div id="cal-wrap"></div>
 </section>
 
@@ -319,7 +336,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
 </nav>
 <nav class="tabbar hidden" id="tabs-client">
   <button data-go="s-find" class="on"><span class="ic">◎</span>Find</button>
-  <button data-go="s-mine"><span class="ic">▤</span>My bookings</button>
+  <button data-go="s-mine"><span class="ic">▤</span>My bookings<span id="mine-badge" class="badge hidden">0</span></button>
 </nav>
 
 <div id="sheet-host"></div>
@@ -538,6 +555,8 @@ const S = {
   salonId: null, salon: null,
   services: [], stylists: [],
   calDate: new Date(),
+  calMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+  monthBookings: {},
   here: null, radiusKm: 15, results: [],
   pick: { salon: null, services: [], stylistId: null, dayKey: null, startMin: null }
 };
@@ -657,6 +676,7 @@ onAuthStateChanged(auth, async user => {
     $("tabs-client").classList.remove("hidden");
     show("s-find");
     searchSalons();
+    refreshBadge();
   }
 });
 
@@ -935,21 +955,35 @@ function renderStylists() {
 }
 
 /* ─────────── Calendar (signature view) ─────────── */
-$("cal-prev").addEventListener("click", () => { S.calDate.setDate(S.calDate.getDate() - 1); renderCalendar(); });
-$("cal-next").addEventListener("click", () => { S.calDate.setDate(S.calDate.getDate() + 1); renderCalendar(); });
-$("cal-today").addEventListener("click", () => { S.calDate = new Date(); renderCalendar(); });
+$("cal-prev").addEventListener("click", () => { S.calMonth.setMonth(S.calMonth.getMonth() - 1); renderCalendar(); });
+$("cal-next").addEventListener("click", () => { S.calMonth.setMonth(S.calMonth.getMonth() + 1); renderCalendar(); });
+$("cal-today").addEventListener("click", () => {
+  S.calDate = new Date();
+  S.calMonth = new Date(S.calDate.getFullYear(), S.calDate.getMonth(), 1);
+  renderCalendar();
+});
 
-async function fetchDayBookings(salonId, key) {
-  // The ownerUid filter is not optional. Security rules are not filters:
-  // the rule checks resource.data.ownerUid, so the query must constrain the
-  // same field or Firestore rejects the whole read as permission-denied.
+/**
+ * One query per month, not per day. Equality on ownerUid plus a range on
+ * dayKey — that pair needs a composite index (ownerUid ASC, dayKey ASC).
+ */
+async function fetchMonthBookings(salonId, monthDate) {
+  const y = monthDate.getFullYear(), m = monthDate.getMonth();
+  const from = y + "-" + String(m + 1).padStart(2, "0") + "-01";
+  const to = y + "-" + String(m + 1).padStart(2, "0") + "-31";
   const q1 = query(
     collection(db, "salons", salonId, "bookings"),
     where("ownerUid", "==", S.uid),
-    where("dayKey", "==", key)
+    where("dayKey", ">=", from),
+    where("dayKey", "<=", to)
   );
   const snap = await getDocs(q1);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const byDay = {};
+  snap.docs.forEach(d => {
+    const b = { id: d.id, ...d.data() };
+    (byDay[b.dayKey] = byDay[b.dayKey] || []).push(b);
+  });
+  return byDay;
 }
 
 /* ─────────── Availability mirror ───────────
@@ -983,38 +1017,121 @@ async function releaseBusy(salonId, stylistId, key, bookingId) {
 }
 
 async function renderCalendar() {
-  const key = dayKey(S.calDate);
+  const mlbl = $("cal-month-lbl");
+  mlbl.textContent = MONTHS[S.calMonth.getMonth()] + " " + S.calMonth.getFullYear();
+  $("cal-eyebrow").textContent = "Month";
+
+  const grid = $("cal-month");
+  grid.innerHTML = '<div class="spin"></div>';
+
+  try { S.monthBookings = await fetchMonthBookings(S.salonId, S.calMonth); }
+  catch (e) {
+    grid.innerHTML = '<div class="empty">Could not load the month &mdash; ' + esc(e.code || e.message) + '</div>';
+    $("cal-wrap").innerHTML = "";
+    return;
+  }
+
+  renderMonthGrid();
+  renderDay();
+}
+
+function renderMonthGrid() {
+  const grid = $("cal-month");
+  grid.innerHTML = "";
+
+  const head = el("div", "mgrid");
+  DOWLBL.forEach(d => head.appendChild(el("div", "mhead", d[0] + d[1])));
+  grid.appendChild(head);
+
+  const y = S.calMonth.getFullYear(), m = S.calMonth.getMonth();
+  const first = new Date(y, m, 1);
+  const lead = first.getDay();
+  const daysIn = new Date(y, m + 1, 0).getDate();
+  const todayK = dayKey(new Date());
+  const selK = dayKey(S.calDate);
+
+  const body = el("div", "mgrid");
+  body.style.marginTop = "4px";
+
+  // trailing days of the previous month, tappable so the grid never lies
+  for (let i = 0; i < lead; i++) {
+    const d = new Date(y, m, 1 - (lead - i));
+    body.appendChild(monthCell(d, true, todayK, selK));
+  }
+  for (let n = 1; n <= daysIn; n++) {
+    body.appendChild(monthCell(new Date(y, m, n), false, todayK, selK));
+  }
+  const tail = (7 - ((lead + daysIn) % 7)) % 7;
+  for (let i = 1; i <= tail; i++) {
+    body.appendChild(monthCell(new Date(y, m + 1, i), true, todayK, selK));
+  }
+  grid.appendChild(body);
+}
+
+function monthCell(d, dim, todayK, selK) {
+  const k = dayKey(d);
+  const list = (S.monthBookings[k] || []).filter(b => b.status !== "cancelled");
+  const rostered = S.stylists.some(st => {
+    const hrs = (st.hours || {})[DOW[d.getDay()]];
+    return hrs && !hrs.off;
+  });
+
+  const cell = el("div", "mcell" + (dim ? " dim" : "") + (rostered ? "" : " closed") +
+    (k === todayK ? " today" : "") + (k === selK ? " on" : ""));
+  cell.appendChild(el("div", "n", String(d.getDate())));
+  if (list.length) cell.appendChild(el("div", "cnt", String(list.length)));
+
+  cell.addEventListener("click", async () => {
+    S.calDate = new Date(d);
+    // stepping into a neighbouring month reloads that month's bookings
+    if (d.getMonth() !== S.calMonth.getMonth() || d.getFullYear() !== S.calMonth.getFullYear()) {
+      S.calMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+      await renderCalendar();
+    } else {
+      renderMonthGrid();
+      renderDay();
+    }
+    $("cal-wrap").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  return cell;
+}
+
+function renderDay() {
   const d = S.calDate;
-  $("cal-eyebrow").textContent = DOWLBL[d.getDay()] + (key === dayKey(new Date()) ? " · today" : "");
-  $("cal-date").textContent = d.getDate() + " " + MONTHS[d.getMonth()];
-
+  const key = dayKey(d);
   const wrap = $("cal-wrap");
-  wrap.innerHTML = '<div class="spin"></div>';
+  $("cal-daylbl").textContent =
+    DOWLBL[d.getDay()] + " " + d.getDate() + " " + MONTHS[d.getMonth()] +
+    (key === dayKey(new Date()) ? " · today" : "");
 
-  let bookings = [];
-  try { bookings = await fetchDayBookings(S.salonId, key); }
-  catch (e) { wrap.innerHTML = '<div class="empty">Could not load the day &mdash; ' + esc(e.code || e.message) + '</div>'; return; }
+  const bookings = S.monthBookings[key] || [];
+  wrap.innerHTML = "";
 
-  const working = S.stylists.filter(st => { const h = (st.hours || {})[DOW[d.getDay()]]; return h && !h.off; });
+  const working = S.stylists.filter(st => {
+    const hrs = (st.hours || {})[DOW[d.getDay()]];
+    return hrs && !hrs.off;
+  });
   if (!working.length) {
-    wrap.innerHTML = '<div class="empty">Nobody is rostered on this day. Set working hours under Stylists.</div>';
+    wrap.appendChild(el("div", "empty", "Nobody is rostered on this day. Set working hours under Stylists."));
     return;
   }
 
   let open = 24 * 60, close = 0;
-  working.forEach(st => { const h = st.hours[DOW[d.getDay()]]; open = Math.min(open, hm2min(h.open)); close = Math.max(close, hm2min(h.close)); });
-  const PX = 1.5; // pixels per minute
+  working.forEach(st => {
+    const hrs = st.hours[DOW[d.getDay()]];
+    open = Math.min(open, hm2min(hrs.open));
+    close = Math.max(close, hm2min(hrs.close));
+  });
+  const PX = 1.5;
   const height = (close - open) * PX;
 
-  wrap.innerHTML = "";
   const tl = el("div", "timeline");
-
   const gutter = el("div", "gutter");
   gutter.style.height = (height + 34) + "px";
   for (let t = Math.ceil(open / 60) * 60; t <= close; t += 60) {
-    const m = el("div", "mark", min2hm(t));
-    m.style.top = (34 + (t - open) * PX) + "px";
-    gutter.appendChild(m);
+    const mk = el("div", "mark", min2hm(t));
+    mk.style.top = (34 + (t - open) * PX) + "px";
+    gutter.appendChild(mk);
   }
   tl.appendChild(gutter);
 
@@ -1049,9 +1166,8 @@ async function renderCalendar() {
         t += seg.mins;
       });
 
-      const lbl = el("div", "lbl",
-        '<span class="mono">' + min2hm(b.startMin) + '</span><br>' + esc(b.clientName) + '<br>' + esc(b.serviceNames));
-      bar.appendChild(lbl);
+      bar.appendChild(el("div", "lbl",
+        '<span class="mono">' + min2hm(b.startMin) + '</span><br>' + esc(b.clientName) + '<br>' + esc(b.serviceNames)));
       bar.addEventListener("click", () => bookingSheet(b));
       body.appendChild(bar);
     });
@@ -1059,55 +1175,279 @@ async function renderCalendar() {
     col.appendChild(body);
     tl.appendChild(col);
   });
-
   wrap.appendChild(tl);
 
-  const total = bookings.filter(b => b.status !== "cancelled").length;
-  const revenue = bookings.filter(b => b.status !== "cancelled").reduce((a, b) => a + (b.total || 0), 0);
+  const live = bookings.filter(b => b.status !== "cancelled");
+  const revenue = live.reduce((a, b) => a + (b.total || 0), 0);
   const sum = el("div", "card");
   sum.style.marginTop = "14px";
-  sum.innerHTML = '<div class="row between"><div><div class="eyebrow">Booked today</div><h2>' + total + '</h2></div>' +
+  sum.innerHTML = '<div class="row between"><div><div class="eyebrow">Booked</div><h2>' + live.length + '</h2></div>' +
     '<div style="text-align:right"><div class="eyebrow">Expected</div><h2 class="mono">' + rands(revenue) + '</h2></div></div>';
   wrap.appendChild(sum);
 }
 
+/* ─────────── Slot picker, shared by reschedule and suggestions ───────────
+   Returns a node plus a live array of chosen {stylistId,stylistName,dayKey,startMin}.
+   `ignoreBookingId` drops a booking's own blocks from the busy list so its
+   current slot does not look taken while you are moving it. */
+function slotPicker(opts) {
+  const chosen = [];
+  const box = el("div");
+
+  const stySel = el("select");
+  S.stylists.forEach(st => {
+    const o = document.createElement("option");
+    o.value = st.id; o.textContent = st.name;
+    stySel.appendChild(o);
+  });
+  stySel.value = opts.stylistId || (S.stylists[0] && S.stylists[0].id) || "";
+  box.appendChild(el("label", null, "Stylist"));
+  box.appendChild(stySel);
+
+  box.appendChild(el("label", null, "Day"));
+  const dayWrap = el("div", "chips");
+  box.appendChild(dayWrap);
+
+  box.appendChild(el("label", null, "Times"));
+  const slotWrap = el("div");
+  box.appendChild(slotWrap);
+
+  const picked = el("div");
+  picked.style.marginTop = "12px";
+  box.appendChild(picked);
+
+  let curDay = opts.dayKey || dayKey(new Date());
+
+  const base = new Date();
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(base); d.setDate(base.getDate() + i);
+    const k = dayKey(d);
+    const ch = el("button", "chip" + (k === curDay ? " on" : ""),
+      '<span>' + DOWLBL[d.getDay()] + '</span> <b class="mono">' + d.getDate() + '/' + (d.getMonth() + 1) + '</b>');
+    ch.addEventListener("click", () => {
+      curDay = k;
+      dayWrap.querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === ch));
+      drawSlots();
+    });
+    dayWrap.appendChild(ch);
+  }
+
+  function drawPicked() {
+    picked.innerHTML = "";
+    if (!chosen.length) return;
+    picked.appendChild(el("div", "eyebrow", opts.max > 1 ? "Suggesting" : "Moving to"));
+    chosen.forEach((c, i) => {
+      const r = el("div", "segchip");
+      r.style.marginTop = "6px";
+      r.innerHTML = '<span class="mono">' + esc(c.dayKey) + ' ' + min2hm(c.startMin) + '</span> · ' + esc(c.stylistName);
+      const x = el("button", "linkbtn", "remove");
+      x.style.marginLeft = "8px";
+      x.addEventListener("click", () => { chosen.splice(i, 1); drawPicked(); drawSlots(); });
+      r.appendChild(x);
+      picked.appendChild(r);
+    });
+  }
+
+  async function drawSlots() {
+    slotWrap.innerHTML = '<div class="spin"></div>';
+    const st = S.stylists.find(x => x.id === stySel.value);
+    if (!st) { slotWrap.innerHTML = '<div class="empty">Add a stylist first.</div>'; return; }
+
+    let busy = await fetchBusy(S.salonId, st.id, curDay);
+    if (opts.ignoreBookingId) busy = busy.filter(x => x.b !== opts.ignoreBookingId);
+
+    const slots = findSlots(curDay, st, opts.segments, busy, 15);
+    slotWrap.innerHTML = "";
+    if (!slots.length) {
+      slotWrap.appendChild(el("div", "empty", st.name + " has no room that day."));
+      return;
+    }
+    const grid = el("div", "slotgrid");
+    slots.forEach(t => {
+      const on = chosen.some(c => c.dayKey === curDay && c.startMin === t && c.stylistId === st.id);
+      const b = el("button", "slot" + (on ? " on" : ""), min2hm(t));
+      b.addEventListener("click", () => {
+        const at = chosen.findIndex(c => c.dayKey === curDay && c.startMin === t && c.stylistId === st.id);
+        if (at >= 0) chosen.splice(at, 1);
+        else {
+          if (chosen.length >= (opts.max || 1)) chosen.shift();
+          chosen.push({ stylistId: st.id, stylistName: st.name, dayKey: curDay, startMin: t });
+        }
+        drawPicked(); drawSlots();
+      });
+      grid.appendChild(b);
+    });
+    slotWrap.appendChild(grid);
+  }
+
+  stySel.addEventListener("change", drawSlots);
+  drawSlots();
+  return { node: box, chosen };
+}
+
+/* ─────────── Booking actions ─────────── */
+async function applyBookingPatch(b, patch) {
+  await updateDoc(doc(db, "salons", b.salonId || S.salonId, "bookings", b.id), patch);
+  if (b.clientUid) {
+    try { await updateDoc(doc(db, "clients", b.clientUid, "bookings", b.id), patch); } catch (e) {}
+  }
+}
+
+function waLink(b, text) {
+  const num = String(b.clientPhone || "").replace(/[^0-9]/g, "").replace(/^0/, "27");
+  return "https://wa.me/" + num + "?text=" + encodeURIComponent(text);
+}
+
 function bookingSheet(b) {
   const box = el("div");
+  const when = b.dayKey + " · " + min2hm(b.startMin) + "–" + min2hm(b.startMin + b.totalMins);
+
   box.innerHTML =
     '<div class="card"><h3>' + esc(b.clientName) + '</h3>' +
-    '<div class="sm muted">' + esc(b.serviceNames) + '</div>' +
-    '<div class="sm mono" style="margin-top:8px">' + min2hm(b.startMin) + ' – ' + min2hm(b.startMin + b.totalMins) + ' · ' + rands(b.total) + '</div>' +
+    '<div class="sm muted">' + esc(b.serviceNames) + ' with ' + esc(b.stylistName) + '</div>' +
+    '<div class="sm mono" style="margin-top:8px">' + esc(when) + ' · ' + rands(b.total) + '</div>' +
     (b.clientPhone ? '<div class="sm muted" style="margin-top:6px">' + esc(b.clientPhone) + '</div>' : '') +
+    (b.status === "cancelled" ? '<div class="tag rose" style="margin-top:10px">Cancelled</div>' : '') +
     (b.depositDue ? '<div class="tag rose" style="margin-top:10px">Deposit ' + rands(b.depositDue) + ' ' + (b.depositPaid ? 'paid' : 'outstanding') + '</div>' : '') +
+    (b.cancelReason ? '<div class="sm" style="margin-top:10px"><b>Reason given:</b> ' + esc(b.cancelReason) + '</div>' : '') +
     '</div>';
 
+  const closeAll = () => document.querySelectorAll(".sheet").forEach(s => s.remove());
+
+  if (b.status !== "cancelled") {
+    const move = el("button", "btn", "Move this booking");
+    move.addEventListener("click", () => { closeAll(); rescheduleSheet(b); });
+    box.appendChild(move);
+
+    const cancel = el("button", "btn ghost", "Cancel and tell the client why");
+    cancel.style.marginTop = "8px";
+    cancel.addEventListener("click", () => { closeAll(); cancelSheet(b); });
+    box.appendChild(cancel);
+  }
+
   if (b.clientPhone) {
-    const wa = el("button", "btn ghost", "Send WhatsApp confirmation");
+    const wa = el("button", "btn ghost", "WhatsApp the client");
+    wa.style.marginTop = "8px";
     wa.addEventListener("click", () => {
-      const num = String(b.clientPhone).replace(/[^0-9]/g, "").replace(/^0/, "27");
-      const msg = "Hi " + b.clientName + ", confirming your booking at " + S.salon.name + " on " +
-        b.dayKey + " at " + min2hm(b.startMin) + " for " + b.serviceNames + ". See you then!";
-      window.open("https://wa.me/" + num + "?text=" + encodeURIComponent(msg), "_blank");
+      window.open(waLink(b, "Hi " + b.clientName + ", about your booking at " + S.salon.name +
+        " on " + b.dayKey + " at " + min2hm(b.startMin) + " for " + b.serviceNames + " — "), "_blank");
     });
     box.appendChild(wa);
   }
 
-  const cancel = el("button", "btn ghost", "Cancel this booking");
-  cancel.style.marginTop = "8px";
-  cancel.addEventListener("click", async () => {
-    if (!confirm("Cancel this booking? The slot reopens immediately.")) return;
-    await updateDoc(doc(db, "salons", S.salonId, "bookings", b.id), { status: "cancelled" });
+  const del = el("button", "btn ghost", "Delete permanently");
+  del.style.marginTop = "8px";
+  del.addEventListener("click", async () => {
+    if (!confirm("Delete this booking for good? The client's copy goes too, and they are not told.")) return;
     await releaseBusy(S.salonId, b.stylistId, b.dayKey, b.id);
-    if (b.clientUid) {
-      try { await updateDoc(doc(db, "clients", b.clientUid, "bookings", b.id), { status: "cancelled" }); } catch (e) {}
-    }
-    toast("Booking cancelled");
-    renderCalendar();
-    document.querySelectorAll(".sheet").forEach(s => s.remove());
+    await deleteDoc(doc(db, "salons", S.salonId, "bookings", b.id));
+    if (b.clientUid) { try { await deleteDoc(doc(db, "clients", b.clientUid, "bookings", b.id)); } catch (e) {} }
+    closeAll(); toast("Booking deleted"); renderCalendar();
   });
-  box.appendChild(cancel);
+  box.appendChild(del);
 
   sheet("Booking", box, async () => true, "Done");
+}
+
+function rescheduleSheet(b) {
+  const picker = slotPicker({
+    segments: b.segments,
+    max: 1,
+    stylistId: b.stylistId,
+    dayKey: b.dayKey,
+    ignoreBookingId: b.id
+  });
+
+  const box = el("div");
+  box.appendChild(el("div", "sm muted",
+    "Currently " + b.dayKey + " at " + min2hm(b.startMin) + " with " + b.stylistName + "."));
+  box.appendChild(picker.node);
+
+  const noteWrap = el("div", "field");
+  noteWrap.style.marginTop = "16px";
+  noteWrap.innerHTML = '<label for="rs-note">Message to the client</label>' +
+    '<textarea id="rs-note" rows="2" placeholder="We had to move you — sorry for the short notice."></textarea>';
+  box.appendChild(noteWrap);
+
+  sheet("Move booking", box, async () => {
+    if (!picker.chosen.length) { toast("Pick a new time first"); return false; }
+    const pick = picker.chosen[0];
+    const blocks = activeBlocks(pick.startMin, b.segments);
+
+    // last-second check against whatever is true right now
+    let busy = await fetchBusy(S.salonId, pick.stylistId, pick.dayKey);
+    busy = busy.filter(x => x.b !== b.id);
+    const st = S.stylists.find(x => x.id === pick.stylistId);
+    if (!findSlots(pick.dayKey, st, b.segments, busy, 15).includes(pick.startMin)) {
+      toast("That slot just filled. Pick another."); return false;
+    }
+
+    await releaseBusy(S.salonId, b.stylistId, b.dayKey, b.id);
+    await addBusy(S.salonId, pick.stylistId, pick.dayKey, blocks, b.id);
+    await applyBookingPatch(b, {
+      stylistId: pick.stylistId,
+      stylistName: pick.stylistName,
+      dayKey: pick.dayKey,
+      startMin: pick.startMin,
+      blocks,
+      status: "confirmed",
+      changeNote: noteWrap.querySelector("#rs-note").value.trim() || "Your booking was moved.",
+      changedAt: serverTimestamp(),
+      clientUnread: true
+    });
+
+    toast("Booking moved");
+    renderCalendar();
+    if (b.clientPhone) {
+      window.open(waLink(b, "Hi " + b.clientName + ", your booking at " + S.salon.name +
+        " has moved to " + pick.dayKey + " at " + min2hm(pick.startMin) + " with " + pick.stylistName + ". " +
+        (noteWrap.querySelector("#rs-note").value.trim() || "")), "_blank");
+    }
+  }, "Move booking");
+}
+
+function cancelSheet(b) {
+  const box = el("div");
+  const reasonWrap = el("div", "field");
+  reasonWrap.innerHTML = '<label for="cx-r">Why is it cancelled?</label>' +
+    '<textarea id="cx-r" rows="3" placeholder="The stylist is off sick. Very sorry."></textarea>';
+  box.appendChild(reasonWrap);
+
+  box.appendChild(el("div", "eyebrow", "Suggest other times"));
+  box.appendChild(el("div", "sm muted",
+    "Pick up to three. The client sees them and can accept one with a single tap."));
+
+  const picker = slotPicker({ segments: b.segments, max: 3, stylistId: b.stylistId, ignoreBookingId: b.id });
+  box.appendChild(picker.node);
+
+  sheet("Cancel booking", box, async () => {
+    const reason = reasonWrap.querySelector("#cx-r").value.trim();
+    if (!reason) { toast("Give the client a reason"); return false; }
+
+    await releaseBusy(S.salonId, b.stylistId, b.dayKey, b.id);
+    await applyBookingPatch(b, {
+      status: "cancelled",
+      cancelReason: reason,
+      cancelledBy: "salon",
+      proposals: picker.chosen.map(c => ({
+        stylistId: c.stylistId, stylistName: c.stylistName,
+        dayKey: c.dayKey, startMin: c.startMin
+      })),
+      changedAt: serverTimestamp(),
+      clientUnread: true
+    });
+
+    toast("Cancelled and client notified in app");
+    renderCalendar();
+
+    if (b.clientPhone) {
+      const alts = picker.chosen.length
+        ? " We can offer: " + picker.chosen.map(c => c.dayKey + " " + min2hm(c.startMin)).join(", ") + "."
+        : "";
+      window.open(waLink(b, "Hi " + b.clientName + ", sorry — your booking at " + S.salon.name +
+        " on " + b.dayKey + " at " + min2hm(b.startMin) + " is cancelled. " + reason + alts), "_blank");
+    }
+  }, "Cancel booking");
 }
 
 /* ─────────── Salon settings ─────────── */
@@ -1419,6 +1759,59 @@ $("bk-confirm").addEventListener("click", async () => {
 });
 
 /* ─────────── Client: my bookings ─────────── */
+async function refreshBadge() {
+  const badge = $("mine-badge");
+  if (!badge || !S.uid) return;
+  try {
+    const snap = await getDocs(query(
+      collection(db, "clients", S.uid, "bookings"),
+      where("clientUnread", "==", true)
+    ));
+    badge.textContent = String(snap.size);
+    badge.classList.toggle("hidden", snap.size === 0);
+  } catch (e) { badge.classList.add("hidden"); }
+}
+
+async function acceptProposal(b, prop) {
+  const st = { id: prop.stylistId, name: prop.stylistName };
+
+  // Verify the offer is still real before taking it.
+  const stySnap = await getDoc(doc(db, "salons", b.salonId, "stylists", prop.stylistId));
+  if (!stySnap.exists()) { toast("That stylist is no longer available"); return; }
+  const stylist = { id: prop.stylistId, ...stySnap.data() };
+
+  const busy = await fetchBusy(b.salonId, prop.stylistId, prop.dayKey);
+  if (!findSlots(prop.dayKey, stylist, b.segments, busy, 15).includes(prop.startMin)) {
+    toast("That time has gone. Ask the salon for another.");
+    return;
+  }
+
+  const blocks = activeBlocks(prop.startMin, b.segments);
+  const fresh = {
+    salonId: b.salonId, salonName: b.salonName, ownerUid: b.ownerUid || null,
+    stylistId: prop.stylistId, stylistName: prop.stylistName,
+    clientUid: S.uid, clientName: b.clientName, clientPhone: b.clientPhone || "",
+    serviceIds: b.serviceIds, serviceNames: b.serviceNames,
+    segments: b.segments, blocks,
+    dayKey: prop.dayKey, startMin: prop.startMin,
+    totalMins: b.totalMins, total: b.total,
+    depositDue: b.depositDue || 0, depositPaid: false,
+    status: "confirmed", clientUnread: false,
+    createdAt: serverTimestamp()
+  };
+
+  const ref = await addDoc(collection(db, "salons", b.salonId, "bookings"), fresh);
+  await addBusy(b.salonId, prop.stylistId, prop.dayKey, blocks, ref.id);
+  try { await setDoc(doc(db, "clients", S.uid, "bookings", ref.id), fresh); } catch (e) {}
+
+  // retire the cancelled original so the offer cannot be taken twice
+  await updateDoc(doc(db, "clients", S.uid, "bookings", b.id), { proposals: [], clientUnread: false });
+  try { await updateDoc(doc(db, "salons", b.salonId, "bookings", b.id), { proposals: [] }); } catch (e) {}
+
+  toast("Rebooked for " + prop.dayKey + " at " + min2hm(prop.startMin));
+  loadMyBookings();
+}
+
 async function loadMyBookings() {
   const host = $("mine-list");
   host.innerHTML = '<div class="spin"></div>';
@@ -1431,25 +1824,50 @@ async function loadMyBookings() {
     const today = dayKey(new Date());
     list.forEach(b => {
       const past = b.dayKey < today;
+      const dead = b.status === "cancelled";
       const c = el("div", "card");
-      c.style.opacity = past || b.status === "cancelled" ? ".55" : "1";
+      c.style.opacity = past || dead ? ".62" : "1";
+      if (b.clientUnread) c.style.borderColor = "var(--rose)";
+
       c.innerHTML =
         '<div class="row between"><div class="grow">' +
-        '<div class="eyebrow">' + esc(b.salonName) + '</div>' +
+        '<div class="eyebrow">' + esc(b.salonName) + (b.clientUnread ? ' <span class="tag rose">updated</span>' : '') + '</div>' +
         '<h3 style="margin-top:4px">' + esc(b.serviceNames) + '</h3>' +
         '<div class="sm muted">with ' + esc(b.stylistName) + '</div>' +
         '<div class="sm mono" style="margin-top:6px">' + esc(b.dayKey) + ' · ' + min2hm(b.startMin) + ' – ' + min2hm(b.startMin + b.totalMins) + '</div>' +
         '</div><div class="mono" style="font-weight:600">' + rands(b.total) + '</div></div>' +
-        (b.status === "cancelled" ? '<div class="tag rose" style="margin-top:10px">Cancelled</div>' :
-          (b.depositDue ? '<div class="tag rose" style="margin-top:10px">Deposit ' + rands(b.depositDue) + ' ' + (b.depositPaid ? 'paid' : 'due') + '</div>' : ''));
+        (dead ? '<div class="tag rose" style="margin-top:10px">Cancelled by ' + esc(b.cancelledBy || "salon") + '</div>' : '') +
+        (b.cancelReason ? '<div class="sm" style="margin-top:8px"><b>Reason:</b> ' + esc(b.cancelReason) + '</div>' : '') +
+        (b.changeNote && !dead ? '<div class="sm" style="margin-top:8px"><b>From the salon:</b> ' + esc(b.changeNote) + '</div>' : '') +
+        (!dead && b.depositDue ? '<div class="tag rose" style="margin-top:10px">Deposit ' + rands(b.depositDue) + ' ' + (b.depositPaid ? 'paid' : 'due') + '</div>' : '');
 
-      if (!past && b.status !== "cancelled") {
+      if ((b.proposals || []).length) {
+        c.appendChild(el("div", "eyebrow", "The salon suggested"));
+        b.proposals.forEach(pr => {
+          const d = keyToDate(pr.dayKey);
+          const row = el("div", "prop");
+          row.innerHTML = '<div class="row between"><div>' +
+            '<b>' + DOWLBL[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()] + '</b>' +
+            '<div class="sm mono">' + min2hm(pr.startMin) + ' · ' + esc(pr.stylistName) + '</div></div>' +
+            '<span class="tag rose">Accept</span></div>';
+          row.addEventListener("click", async () => {
+            if (!confirm("Take " + pr.dayKey + " at " + min2hm(pr.startMin) + "?")) return;
+            try { await acceptProposal(b, pr); }
+            catch (e) { toast("Could not rebook — " + (e.code || e.message)); }
+          });
+          c.appendChild(row);
+        });
+      }
+
+      if (!past && !dead) {
         const x = el("button", "btn ghost sm", "Cancel booking");
         x.style.marginTop = "12px";
         x.addEventListener("click", async () => {
-          if (!confirm("Cancel this booking?")) return;
-          await updateDoc(doc(db, "clients", S.uid, "bookings", b.id), { status: "cancelled" });
-          try { await updateDoc(doc(db, "salons", b.salonId, "bookings", b.id), { status: "cancelled" }); } catch (e) {}
+          const why = prompt("Let the salon know why you are cancelling:", "");
+          if (why === null) return;
+          const patch = { status: "cancelled", cancelReason: why.trim(), cancelledBy: "client", clientUnread: false };
+          await updateDoc(doc(db, "clients", S.uid, "bookings", b.id), patch);
+          try { await updateDoc(doc(db, "salons", b.salonId, "bookings", b.id), patch); } catch (e) {}
           try { await releaseBusy(b.salonId, b.stylistId, b.dayKey, b.id); } catch (e) {}
           toast("Booking cancelled");
           loadMyBookings();
@@ -1458,6 +1876,14 @@ async function loadMyBookings() {
       }
       host.appendChild(c);
     });
+
+    // opening the screen counts as reading the updates
+    for (const b of list) {
+      if (b.clientUnread) {
+        try { await updateDoc(doc(db, "clients", S.uid, "bookings", b.id), { clientUnread: false }); } catch (e) {}
+      }
+    }
+    refreshBadge();
   } catch (e) {
     host.innerHTML = '<div class="empty">Could not load your bookings &mdash; ' + esc(e.code || e.message) + '</div>';
   }

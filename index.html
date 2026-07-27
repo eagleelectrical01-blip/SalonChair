@@ -183,6 +183,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
     </div>
     <div style="margin-top:16px"><button class="btn rose" id="a-go">Create account</button></div>
     <div class="center" style="margin-top:6px"><button class="linkbtn" id="a-toggle">I already have an account</button></div>
+    <div class="center"><button class="linkbtn muted" id="a-forgot" style="font-weight:400;font-size:14px">Forgot your password?</button></div>
     <p id="a-err" class="sm hidden" style="color:var(--rose);margin:10px 0 0"></p>
   </div>
 </section>
@@ -438,7 +439,7 @@ const firebaseConfig = {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  signOut, onAuthStateChanged
+  signOut, onAuthStateChanged, sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc,
@@ -786,6 +787,38 @@ $("a-go").addEventListener("click", async () => {
     err.classList.remove("hidden");
   }
   $("a-go").disabled = false;
+});
+
+/**
+ * Firebase sends the reset link itself — no server needed. Note that it
+ * reports success even for addresses that have no account, to stop the form
+ * being used to discover who is registered.
+ */
+async function sendReset(email) {
+  await sendPasswordResetEmail(auth, email);
+}
+
+$("a-forgot").addEventListener("click", async () => {
+  const err = $("a-err");
+  let email = $("a-email").value.trim();
+  if (!email) email = (prompt("Which email address is the account under?", "") || "").trim();
+  if (!email) return;
+
+  $("a-forgot").disabled = true;
+  try {
+    await sendReset(email);
+    err.style.color = "var(--teal)";
+    err.textContent = "Reset link sent to " + email + ". Check the inbox, and the spam folder.";
+    err.classList.remove("hidden");
+  } catch (e) {
+    const m = String(e.code || e.message);
+    err.style.color = "var(--rose)";
+    err.textContent = m.includes("invalid-email")
+      ? "That email address is not valid."
+      : "Could not send the reset link — " + m;
+    err.classList.remove("hidden");
+  }
+  $("a-forgot").disabled = false;
 });
 
 $("set-out").addEventListener("click", () => signOut(auth));
@@ -1965,6 +1998,18 @@ async function loadAdminSalons() {
     const susp = el("button", "btn ghost sm", s.active === false ? "Unsuspend" : "Suspend");
     susp.addEventListener("click", () => patch({ active: s.active === false }, "Updated"));
     acts.appendChild(susp);
+
+    if (s.ownerEmail) {
+      const pw = el("button", "btn ghost sm", "Send password reset");
+      pw.addEventListener("click", async () => {
+        if (!confirm("Email a password reset link to " + s.ownerEmail + "?")) return;
+        try {
+          await sendReset(s.ownerEmail);
+          toast("Reset link sent to " + s.ownerEmail);
+        } catch (e) { toast("Could not send — " + (e.code || e.message)); }
+      });
+      acts.appendChild(pw);
+    }
 
     if (s.phone) {
       const wa = el("button", "btn rose sm", "Send my banking details");

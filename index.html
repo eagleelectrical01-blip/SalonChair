@@ -272,6 +272,12 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
     <div class="field"><label for="set-name">Salon name</label><input id="set-name"></div>
     <div class="field"><label for="set-addr">Business address</label><textarea id="set-addr" rows="2"></textarea></div>
     <div class="field"><label for="set-phone">WhatsApp number</label><input id="set-phone"></div>
+    <div class="field"><label for="set-contactemail">Salon email address</label><input id="set-contactemail" type="email" placeholder="bookings@yoursalon.co.za"></div>
+    <div class="field">
+      <label for="set-loginemail">Sign-in email (cannot be edited here)</label>
+      <input id="set-loginemail" disabled style="opacity:.6">
+      <div class="sm muted" style="margin-top:5px">This is the address you log in with and where password resets are sent.</div>
+    </div>
     <div class="two" style="margin-top:12px">
       <div><label for="set-lat">Latitude</label><input id="set-lat" class="mono"></div>
       <div><label for="set-lng">Longitude</label><input id="set-lng" class="mono"></div>
@@ -923,6 +929,17 @@ $("ob-save").addEventListener("click", async () => {
 async function loadSalonWorkspace() {
   const sd = await getDoc(doc(db, "salons", S.salonId));
   S.salon = { id: S.salonId, ...sd.data() };
+
+  // Keep ownerEmail in step with the account that actually signs in. Salons
+  // created before this field existed get it filled in here, and if the owner
+  // ever changes their login address the admin reset button follows it.
+  const authEmail = (auth.currentUser && auth.currentUser.email) || "";
+  if (authEmail && S.salon.ownerEmail !== authEmail) {
+    try {
+      await updateDoc(doc(db, "salons", S.salonId), { ownerEmail: authEmail });
+      S.salon.ownerEmail = authEmail;
+    } catch (e) {}
+  }
 
   if (S.salon.plan !== "active" && S.salon.trialEndsAt && Date.now() > S.salon.trialEndsAt) {
     await showLocked();
@@ -1963,7 +1980,8 @@ async function loadAdminSalons() {
     const lg = el("div", "logo"); paintLogo(lg, s);
     const info = el("div", "grow");
     info.innerHTML = '<h3>' + esc(s.name || "Unnamed") + '</h3>' +
-      '<div class="sm muted">' + esc(s.ownerEmail || "no email on file") + '</div>' +
+      '<div class="sm muted">Login: ' + esc(s.ownerEmail || "not recorded yet") + '</div>' +
+      (s.contactEmail ? '<div class="sm muted">Salon: ' + esc(s.contactEmail) + '</div>' : '') +
       '<div class="sm muted mono">' + esc(s.phone || "no phone on file") + '</div>' +
       '<div class="sm muted">' + esc(s.address || "") + '</div>' +
       '<div style="margin-top:6px">' +
@@ -2001,7 +2019,7 @@ async function loadAdminSalons() {
     acts.appendChild(susp);
 
     if (s.ownerEmail) {
-      const pw = el("button", "btn ghost sm", "Send password reset");
+      const pw = el("button", "btn ghost sm", "Reset password");
       pw.addEventListener("click", async () => {
         if (!confirm("Email a password reset link to " + s.ownerEmail + "?")) return;
         try {
@@ -2042,6 +2060,8 @@ function fillSettings() {
   $("set-name").value = S.salon.name || "";
   $("set-addr").value = S.salon.address || "";
   $("set-phone").value = S.salon.phone || "";
+  $("set-contactemail").value = S.salon.contactEmail || "";
+  $("set-loginemail").value = S.salon.ownerEmail || (auth.currentUser && auth.currentUser.email) || "";
   $("set-lat").value = S.salon.lat != null ? S.salon.lat : "";
   $("set-lng").value = S.salon.lng != null ? S.salon.lng : "";
   $("set-dep").value = S.salon.depositPct != null ? S.salon.depositPct : 10;
@@ -2069,6 +2089,7 @@ $("set-save").addEventListener("click", async () => {
     name: $("set-name").value.trim(),
     address: $("set-addr").value.trim(),
     phone: $("set-phone").value.trim(),
+    contactEmail: $("set-contactemail").value.trim(),
     lat, lng,
     depositPct: Math.max(0, Math.min(100, Number($("set-dep").value) || 0)),
     bankName: $("set-bank").value.trim(),

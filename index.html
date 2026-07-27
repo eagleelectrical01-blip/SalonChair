@@ -316,7 +316,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
   <div class="card">
     <div class="row">
       <div class="logo lg" id="sa-logo">?</div>
-      <div class="grow"><h2 id="sa-name">—</h2><div class="sm muted" id="sa-addr"></div><div class="sm muted mono" id="sa-dist"></div></div>
+      <div class="grow"><h2 id="sa-name">—</h2><div class="sm muted" id="sa-addr"></div><div class="sm mono" id="sa-phone"></div><div class="sm muted mono" id="sa-dist"></div></div>
     </div>
     <div id="sa-dep" class="sm hidden" style="margin-top:12px"></div>
   </div>
@@ -1964,6 +1964,7 @@ async function loadAdminSalons() {
     const info = el("div", "grow");
     info.innerHTML = '<h3>' + esc(s.name || "Unnamed") + '</h3>' +
       '<div class="sm muted">' + esc(s.ownerEmail || "no email on file") + '</div>' +
+      '<div class="sm muted mono">' + esc(s.phone || "no phone on file") + '</div>' +
       '<div class="sm muted">' + esc(s.address || "") + '</div>' +
       '<div style="margin-top:6px">' +
       (active ? '<span class="tag teal">Subscribed</span>'
@@ -2145,7 +2146,9 @@ async function searchSalons() {
       const row = el("div", "row");
       const lg = el("div", "logo"); paintLogo(lg, s);
       const info = el("div", "grow");
-      info.innerHTML = '<h3>' + esc(s.name) + '</h3><div class="sm muted">' + esc(s.address || "") + '</div>' +
+      info.innerHTML = '<h3>' + esc(s.name) + '</h3>' +
+        '<div class="sm muted">' + esc(s.address || "") + '</div>' +
+        (s.phone ? '<div class="sm muted mono">' + esc(s.phone) + '</div>' : '') +
         (s.km != null ? '<div class="sm mono" style="color:var(--rose)">' + s.km.toFixed(1) + ' km away</div>' : '');
       row.appendChild(lg); row.appendChild(info);
       c.appendChild(row);
@@ -2166,6 +2169,9 @@ async function openSalon(s) {
   paintLogo($("sa-logo"), s);
   $("sa-name").textContent = s.name;
   $("sa-addr").textContent = s.address || "";
+  const saPhone = $("sa-phone");
+  if (s.phone) { saPhone.innerHTML = '<a href="tel:' + esc(s.phone) + '" style="color:var(--rose);text-decoration:none">' + esc(s.phone) + '</a>'; }
+  else saPhone.textContent = "";
   $("sa-dist").textContent = s.km != null ? s.km.toFixed(1) + " km away" : "";
   const dep = $("sa-dep");
   if (depositPctOf(s) > 0) {
@@ -2580,6 +2586,20 @@ async function loadMyBookings() {
         pay.style.marginTop = "12px";
         pay.addEventListener("click", () => openPayScreen(b, "s-mine"));
         c.appendChild(pay);
+      }
+
+      if (past || dead) {
+        const rm = el("button", "btn ghost sm", "Remove from my list");
+        rm.style.marginTop = "12px";
+        rm.addEventListener("click", async () => {
+          if (!confirm("Remove this booking from your list? The salon keeps its own record.")) return;
+          try {
+            await deleteDoc(doc(db, "clients", S.uid, "bookings", b.id));
+            toast("Removed");
+            loadMyBookings();
+          } catch (e) { toast("Could not remove — " + (e.code || e.message)); }
+        });
+        c.appendChild(rm);
       }
 
       if (!past && !dead) {

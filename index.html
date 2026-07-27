@@ -373,7 +373,13 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
 
 <!-- ============ CLIENT: MY BOOKINGS ============ -->
 <section id="s-mine" class="screen">
-  <div class="topbar"><h2>My bookings</h2></div>
+  <div class="topbar between row"><h2>My bookings</h2><button class="btn ghost sm" id="me-toggle">My details</button></div>
+  <div class="card hidden" id="me-card">
+    <div class="field"><label for="me-name">Your name</label><input id="me-name"></div>
+    <div class="field"><label for="me-phone">WhatsApp number</label><input id="me-phone" type="tel" inputmode="tel" placeholder="082 000 0000"></div>
+    <div class="sm muted" style="margin-top:8px">The salon uses this to reach you about your bookings.</div>
+    <div style="margin-top:14px"><button class="btn rose" id="me-save">Save my details</button></div>
+  </div>
   <div id="mine-list"></div>
   <hr>
   <button class="btn ghost" id="mine-out">Sign out</button>
@@ -387,6 +393,11 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
   </div>
   <div id="ad-summary"></div>
   <div id="ad-list"></div>
+</section>
+
+<section id="s-adsalon" class="screen">
+  <div class="topbar"><button class="back" id="ads-back">←</button><div><div class="eyebrow">Salon</div><h2 id="ads-name">—</h2></div></div>
+  <div id="ads-body"></div>
 </section>
 
 <section id="s-billing" class="screen">
@@ -1406,7 +1417,9 @@ function renderDay() {
       });
 
       bar.appendChild(el("div", "lbl",
-        '<span class="mono">' + min2hm(b.startMin) + '</span><br>' + esc(b.clientName) + '<br>' + esc(b.serviceNames)));
+        '<span class="mono">' + min2hm(b.startMin) + '</span><br>' + esc(b.clientName) +
+        (b.clientPhone ? '<br><span class="mono" style="opacity:.85">' + esc(b.clientPhone) + '</span>' : '') +
+        '<br>' + esc(b.serviceNames)));
       bar.addEventListener("click", () => bookingSheet(b));
       body.appendChild(bar);
     });
@@ -1545,7 +1558,9 @@ function bookingSheet(b) {
     '<div class="card"><h3>' + esc(b.clientName) + '</h3>' +
     '<div class="sm muted">' + esc(b.serviceNames) + ' with ' + esc(b.stylistName) + '</div>' +
     '<div class="sm mono" style="margin-top:8px">' + esc(when) + ' · ' + rands(b.total) + '</div>' +
-    (b.clientPhone ? '<div class="sm muted" style="margin-top:6px">' + esc(b.clientPhone) + '</div>' : '') +
+    (b.clientPhone
+      ? '<div style="margin-top:8px"><a class="mono" style="color:var(--rose);font-weight:600;font-size:17px;text-decoration:none" href="tel:' + esc(b.clientPhone) + '">' + esc(b.clientPhone) + '</a></div>'
+      : '<div class="sm" style="margin-top:8px;color:var(--rose)">No phone number — this client booked before numbers were collected</div>') +
     (b.status === "cancelled" ? '<div class="tag rose" style="margin-top:10px">Cancelled</div>' : '') +
     (b.depositDue ? '<div class="tag ' + (b.depositPaid ? 'teal' : 'rose') + '" style="margin-top:10px">Deposit ' + rands(b.depositDue) + ' ' +
       (b.depositPaid ? 'received' : b.depositClaimed ? 'claimed by client — not confirmed' : 'outstanding') + '</div>' : '') +
@@ -1935,6 +1950,188 @@ $("pf-save").addEventListener("click", async () => {
   } catch (e) { toast("Could not save — " + (e.code || e.message)); }
 });
 
+/**
+ * Firebase sends the mail itself, and deliberately reports success even for
+ * addresses with no account, so a "sent" toast is not proof of delivery.
+ * Say exactly that rather than implying it landed.
+ */
+async function resetPasswordFor(email) {
+  if (!email) { toast("No login email recorded for that salon"); return; }
+  if (!confirm("Email a password reset link to " + email + "?\n\nFirebase reports success even if no account exists at that address, so check the address is right in Authentication > Users if nothing arrives.")) return;
+  try {
+    await sendReset(email);
+    alert("Reset request accepted for " + email + ".\n\nIf it does not arrive within a few minutes:\n" +
+      "1. Check the spam folder — the sender is noreply@salonchair-9043a.firebaseapp.com\n" +
+      "2. Confirm that exact address exists under Authentication > Users\n" +
+      "3. Check Authentication > Templates is set up for password resets");
+  } catch (e) { toast("Could not send — " + (e.code || e.message)); }
+}
+
+/* ─────────── Admin: one salon, in full ─────────── */
+$("ads-back").addEventListener("click", () => { show("s-admin"); loadAdminSalons(); });
+
+async function openAdminSalon(sid) {
+  show("s-adsalon");
+  const body = $("ads-body");
+  body.innerHTML = '<div class="spin"></div>';
+
+  let s;
+  try {
+    const d = await getDoc(doc(db, "salons", sid));
+    if (!d.exists()) { body.innerHTML = '<div class="empty">That salon no longer exists.</div>'; return; }
+    s = { id: sid, ...d.data() };
+  } catch (e) {
+    body.innerHTML = '<div class="empty">Could not load &mdash; ' + esc(e.code || e.message) + '</div>';
+    return;
+  }
+  $("ads-name").textContent = s.name || "Unnamed";
+
+  // counts, so you can see whether a salon is actually being used
+  let nSvc = 0, nSty = 0, nBk = 0;
+  try {
+    const [a, b2, c2] = await Promise.all([
+      getDocs(collection(db, "salons", sid, "services")),
+      getDocs(collection(db, "salons", sid, "stylists")),
+      getDocs(collection(db, "salons", sid, "bookings"))
+    ]);
+    nSvc = a.size; nSty = b2.size; nBk = c2.size;
+  } catch (e) {}
+
+  body.innerHTML = "";
+
+  const head = el("div", "card");
+  const hrow = el("div", "row");
+  const lg = el("div", "logo lg"); paintLogo(lg, s);
+  const hinfo = el("div", "grow");
+  const left = daysLeft(s);
+  hinfo.innerHTML = '<h3>' + esc(s.name || "Unnamed") + '</h3>' +
+    '<div class="sm muted">Login: ' + esc(s.ownerEmail || "not recorded") + '</div>' +
+    '<div style="margin-top:6px">' +
+    (s.plan === "active" ? '<span class="tag teal">Subscribed</span>'
+      : left != null && left <= 0 ? '<span class="tag rose">Trial ended</span>'
+      : left != null ? '<span class="tag rose">Trial · ' + left + ' days</span>'
+      : '<span class="tag rose">No trial set</span>') +
+    (s.active === false ? ' <span class="tag rose">Suspended</span>' : '') + '</div>';
+  hrow.appendChild(lg); hrow.appendChild(hinfo);
+  head.appendChild(hrow);
+  head.appendChild(el("div", "row between", 
+    '<div><div class="eyebrow">Services</div><h2>' + nSvc + '</h2></div>' +
+    '<div style="text-align:center"><div class="eyebrow">Stylists</div><h2>' + nSty + '</h2></div>' +
+    '<div style="text-align:right"><div class="eyebrow">Bookings</div><h2>' + nBk + '</h2></div>'));
+  head.lastChild.style.marginTop = "14px";
+  body.appendChild(head);
+
+  // editable fields
+  const form = el("div", "card");
+  form.innerHTML =
+    '<h3 style="margin-bottom:12px">Details</h3>' +
+    '<div class="field"><label for="ad-name">Salon name</label><input id="ad-name"></div>' +
+    '<div class="field"><label for="ad-addr">Address</label><textarea id="ad-addr" rows="2"></textarea></div>' +
+    '<div class="field"><label for="ad-phone">WhatsApp number</label><input id="ad-phone"></div>' +
+    '<div class="field"><label for="ad-cemail">Salon email</label><input id="ad-cemail" type="email"></div>' +
+    '<div class="two" style="margin-top:12px">' +
+    '<div><label for="ad-lat">Latitude</label><input id="ad-lat" class="mono"></div>' +
+    '<div><label for="ad-lng">Longitude</label><input id="ad-lng" class="mono"></div></div>' +
+    '<div class="field" style="margin-top:12px"><label for="ad-dep">Deposit (%)</label><input id="ad-dep" class="mono" type="number" min="0" max="100"></div>' +
+    '<h3 style="margin:20px 0 10px">Banking details</h3>' +
+    '<div class="field"><label for="ad-bank">Bank</label><input id="ad-bank"></div>' +
+    '<div class="field"><label for="ad-accname">Account name</label><input id="ad-accname"></div>' +
+    '<div class="field"><label for="ad-accno">Account number</label><input id="ad-accno" class="mono"></div>' +
+    '<div class="two" style="margin-top:12px">' +
+    '<div><label for="ad-branch">Branch code</label><input id="ad-branch" class="mono"></div>' +
+    '<div><label for="ad-acctype">Account type</label><select id="ad-acctype"><option>Cheque</option><option>Savings</option><option>Business</option></select></div></div>';
+  body.appendChild(form);
+
+  const g = id => form.querySelector("#" + id);
+  g("ad-name").value = s.name || "";
+  g("ad-addr").value = s.address || "";
+  g("ad-phone").value = s.phone || "";
+  g("ad-cemail").value = s.contactEmail || "";
+  g("ad-lat").value = s.lat != null ? s.lat : "";
+  g("ad-lng").value = s.lng != null ? s.lng : "";
+  g("ad-dep").value = s.depositPct != null ? s.depositPct : 10;
+  g("ad-bank").value = s.bankName || "";
+  g("ad-accname").value = s.bankAccName || "";
+  g("ad-accno").value = s.bankAccNo || "";
+  g("ad-branch").value = s.bankBranch || "";
+  g("ad-acctype").value = s.bankAccType || "Cheque";
+
+  const save = el("button", "btn rose", "Save changes");
+  save.addEventListener("click", async () => {
+    const lat = parseFloat(g("ad-lat").value), lng = parseFloat(g("ad-lng").value);
+    if (!g("ad-name").value.trim()) { toast("The salon needs a name"); return; }
+    try {
+      await updateDoc(doc(db, "salons", sid), {
+        name: g("ad-name").value.trim(),
+        address: g("ad-addr").value.trim(),
+        phone: g("ad-phone").value.trim(),
+        contactEmail: g("ad-cemail").value.trim(),
+        lat: isFinite(lat) ? lat : s.lat,
+        lng: isFinite(lng) ? lng : s.lng,
+        depositPct: Math.max(0, Math.min(100, Number(g("ad-dep").value) || 0)),
+        bankName: g("ad-bank").value.trim(),
+        bankAccName: g("ad-accname").value.trim(),
+        bankAccNo: g("ad-accno").value.trim(),
+        bankBranch: g("ad-branch").value.trim(),
+        bankAccType: g("ad-acctype").value
+      });
+      toast("Saved");
+      openAdminSalon(sid);
+    } catch (e) { toast("Could not save — " + (e.code || e.message)); }
+  });
+  body.appendChild(save);
+
+  // subscription controls
+  const sub = el("div", "card");
+  sub.style.marginTop = "12px";
+  sub.innerHTML = '<h3 style="margin-bottom:12px">Subscription</h3>';
+  const acts = el("div", "row");
+  acts.style.gap = "8px"; acts.style.flexWrap = "wrap";
+
+  const patch = async (obj, msg) => {
+    try { await updateDoc(doc(db, "salons", sid), obj); toast(msg); openAdminSalon(sid); }
+    catch (e) { toast("Could not update — " + (e.code || e.message)); }
+  };
+  const mk = (label, fn) => { const bb = el("button", "btn ghost sm", label); bb.addEventListener("click", fn); acts.appendChild(bb); };
+
+  mk(s.plan === "active" ? "Mark unpaid" : "Mark subscribed",
+     () => patch(s.plan === "active" ? { plan: "trial", trialEndsAt: Date.now() } : { plan: "active" }, "Updated"));
+  mk("+30 days", () => patch({ plan: "trial", trialEndsAt: Math.max(Date.now(), s.trialEndsAt || Date.now()) + 30 * 86400000 }, "Trial extended"));
+  mk(s.active === false ? "Unsuspend" : "Suspend", () => patch({ active: s.active === false }, "Updated"));
+  if (s.ownerEmail) mk("Reset password", () => resetPasswordFor(s.ownerEmail));
+  sub.appendChild(acts);
+  body.appendChild(sub);
+
+  // destructive, last, and made deliberately awkward
+  const danger = el("div", "card");
+  danger.style.marginTop = "12px";
+  danger.style.borderColor = "var(--rose)";
+  danger.innerHTML = '<h3 style="color:var(--rose)">Delete this salon</h3>' +
+    '<div class="sm muted" style="margin-top:6px">Removes the salon, its ' + nSvc + ' services, ' +
+    nSty + ' stylists, availability and all ' + nBk + ' bookings. Clients keep their own copies of past bookings. This cannot be undone.</div>';
+  const del = el("button", "btn", "Delete permanently");
+  del.style.marginTop = "12px";
+  del.style.background = "var(--rose)";
+  del.addEventListener("click", async () => {
+    const typed = prompt('Type the salon name exactly to confirm deletion:\n\n' + (s.name || ""));
+    if (typed === null) return;
+    if (typed.trim() !== (s.name || "").trim()) { toast("Name did not match — nothing deleted"); return; }
+    del.disabled = true;
+    try {
+      // Firestore does not cascade: subcollections must be cleared by hand
+      for (const sub2 of ["bookings", "availability", "services", "stylists"]) {
+        const snap = await getDocs(collection(db, "salons", sid, sub2));
+        for (const d of snap.docs) await deleteDoc(doc(db, "salons", sid, sub2, d.id));
+      }
+      await deleteDoc(doc(db, "salons", sid));
+      toast("Salon deleted");
+      show("s-admin"); loadAdminSalons();
+    } catch (e) { toast("Could not delete — " + (e.code || e.message)); del.disabled = false; }
+  });
+  danger.appendChild(del);
+  body.appendChild(danger);
+}
+
 function daysLeft(salon) {
   if (!salon.trialEndsAt) return null;
   return Math.ceil((salon.trialEndsAt - Date.now()) / 86400000);
@@ -1992,6 +2189,8 @@ async function loadAdminSalons() {
       (s.active === false ? ' <span class="tag rose">Suspended</span>' : '') +
       '</div>';
     row.appendChild(lg); row.appendChild(info);
+    row.style.cursor = "pointer";
+    row.addEventListener("click", () => openAdminSalon(s.id));
     c.appendChild(row);
 
     const acts = el("div", "row");
@@ -2020,13 +2219,7 @@ async function loadAdminSalons() {
 
     if (s.ownerEmail) {
       const pw = el("button", "btn ghost sm", "Reset password");
-      pw.addEventListener("click", async () => {
-        if (!confirm("Email a password reset link to " + s.ownerEmail + "?")) return;
-        try {
-          await sendReset(s.ownerEmail);
-          toast("Reset link sent to " + s.ownerEmail);
-        } catch (e) { toast("Could not send — " + (e.code || e.message)); }
-      });
+      pw.addEventListener("click", () => resetPasswordFor(s.ownerEmail));
       acts.appendChild(pw);
     }
 
@@ -2504,6 +2697,29 @@ async function openPayScreen(b, backTo) {
 }
 
 /* ─────────── Client: my bookings ─────────── */
+$("me-toggle").addEventListener("click", () => {
+  const card = $("me-card");
+  card.classList.toggle("hidden");
+  if (!card.classList.contains("hidden")) {
+    $("me-name").value = S.profile.name || "";
+    $("me-phone").value = S.profile.phone || "";
+  }
+});
+
+$("me-save").addEventListener("click", async () => {
+  const name = $("me-name").value.trim();
+  const phone = $("me-phone").value.trim();
+  if (!name) { toast("Your name cannot be blank"); return; }
+  if (phone.replace(/[^0-9]/g, "").length < 9) { toast("That phone number looks too short"); return; }
+  try {
+    await updateDoc(doc(db, "users", S.uid), { name, phone });
+    S.profile.name = name;
+    S.profile.phone = phone;
+    $("me-card").classList.add("hidden");
+    toast("Saved — new bookings will carry these");
+  } catch (e) { toast("Could not save — " + (e.code || e.message)); }
+});
+
 async function refreshBadge() {
   const badge = $("mine-badge");
   if (!badge || !S.uid) return;

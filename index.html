@@ -847,6 +847,7 @@ $("ob-save").addEventListener("click", async () => {
   const lat = parseFloat($("ob-lat").value), lng = parseFloat($("ob-lng").value);
 
   if (!name) { err.textContent = "Your salon needs a name."; err.classList.remove("hidden"); return; }
+  if ($("ob-phone").value.replace(/[^0-9]/g, "").length < 9) { err.textContent = "Add a WhatsApp number — clients send proof of deposit payment to it."; err.classList.remove("hidden"); return; }
   if (!isFinite(lat) || !isFinite(lng)) { err.textContent = "Set the map position so clients can find you by distance."; err.classList.remove("hidden"); return; }
 
   $("ob-save").disabled = true;
@@ -2368,6 +2369,33 @@ async function openPayScreen(b, backTo) {
     note.innerHTML = '<div class="sm"><b>Use your own name as the reference</b> — ' +
       esc(b.clientName) + ' — so the salon can match the payment to your booking.</div>';
     body.appendChild(note);
+
+    // proof of payment goes to whichever salon the client booked
+    body.appendChild(el("div", "eyebrow", "Send proof of payment"));
+    const proof = el("div", "card");
+    if (salon.phone) {
+      proof.innerHTML =
+        '<div class="row between"><div>' +
+        '<div class="sm muted">WhatsApp ' + esc(b.salonName) + '</div>' +
+        '<div class="mono" style="font-weight:600;font-size:17px">' + esc(salon.phone) + '</div>' +
+        '</div></div>' +
+        '<div class="sm muted" style="margin-top:8px">Attach the screenshot of your EFT once WhatsApp opens.</div>';
+      const send = el("button", "btn rose", "Send proof of payment");
+      send.style.marginTop = "12px";
+      send.addEventListener("click", () => {
+        const num = String(salon.phone).replace(/[^0-9]/g, "").replace(/^0/, "27");
+        const msg = "Hi " + esc(b.salonName) + ", this is " + b.clientName +
+          ". Here is proof of payment for the " + rands(b.depositDue) + " deposit on my " +
+          b.serviceNames + " booking, " + b.dayKey + " at " + min2hm(b.startMin) +
+          " with " + b.stylistName + ". Reference: " + b.clientName + ".";
+        window.open("https://wa.me/" + num + "?text=" + encodeURIComponent(msg), "_blank");
+      });
+      proof.appendChild(send);
+    } else {
+      proof.innerHTML = '<div class="sm">This salon has not added a WhatsApp number yet. ' +
+        'Keep your proof of payment and bring it with you.</div>';
+    }
+    body.appendChild(proof);
   }
 
   if (b.depositPaid) {
@@ -2391,13 +2419,13 @@ async function openPayScreen(b, backTo) {
   }
 
   if (salon.phone) {
-    const wa = el("button", "btn ghost", "WhatsApp the salon");
+    const wa = el("button", "btn ghost", "Message the salon about something else");
     wa.style.marginTop = "8px";
     wa.addEventListener("click", () => {
       const num = String(salon.phone).replace(/[^0-9]/g, "").replace(/^0/, "27");
       window.open("https://wa.me/" + num + "?text=" + encodeURIComponent(
-        "Hi, this is " + b.clientName + ". I am paying the " + rands(b.depositDue) +
-        " deposit for " + b.serviceNames + " on " + b.dayKey + " at " + min2hm(b.startMin) + "."), "_blank");
+        "Hi, this is " + b.clientName + " about my booking on " + b.dayKey +
+        " at " + min2hm(b.startMin) + "."), "_blank");
     });
     body.appendChild(wa);
   }

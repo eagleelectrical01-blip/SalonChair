@@ -135,6 +135,12 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .slot{padding:11px 4px;border:1px solid var(--line);border-radius:10px;background:var(--card);
   font-family:'JetBrains Mono',monospace;font-size:14px;cursor:pointer;text-align:center}
 .slot.on{background:var(--rose);color:#fff;border-color:var(--rose)}
+/* service photos */
+.svcpv{width:100%;aspect-ratio:16/9;border-radius:10px;background:var(--rose-soft) center/cover no-repeat;
+  display:flex;align-items:center;justify-content:center;color:var(--rose);font-size:13px;font-weight:600;text-align:center;padding:8px}
+.svcthumb{width:54px;height:54px;border-radius:9px;flex:none;background:var(--rose-soft) center/cover no-repeat}
+.svcbanner{width:100%;aspect-ratio:16/9;border-radius:11px;background:var(--rose-soft) center/cover no-repeat;margin-bottom:11px}
+
 /* month grid */
 .mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
 .mhead{font-family:'JetBrains Mono',monospace;font-size:10px;text-align:center;color:var(--muted);padding:4px 0}
@@ -413,8 +419,14 @@ function distKm(a, b, c, d) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-/* Downscale an uploaded logo to a data URL that fits comfortably in a Firestore doc */
-function fileToDataUrl(file, size) {
+/**
+ * Downscale an uploaded image to a data URL small enough to live inside a
+ * Firestore document. Centre-crops to the target aspect ratio.
+ * Square by default (logos); pass w and h for a banner.
+ */
+function fileToDataUrl(file, w, h, quality) {
+  h = h || w;
+  quality = quality || 0.82;
   return new Promise((res, rej) => {
     const fr = new FileReader();
     fr.onerror = () => rej(new Error("Could not read that image"));
@@ -422,12 +434,15 @@ function fileToDataUrl(file, size) {
       const img = new Image();
       img.onerror = () => rej(new Error("That file is not an image"));
       img.onload = () => {
-        const s = Math.min(img.width, img.height);
+        const target = w / h, source = img.width / img.height;
+        let sw, sh;
+        if (source > target) { sh = img.height; sw = sh * target; }
+        else { sw = img.width; sh = sw / target; }
         const cv = document.createElement("canvas");
-        cv.width = cv.height = size;
+        cv.width = w; cv.height = h;
         const cx = cv.getContext("2d");
-        cx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
-        res(cv.toDataURL("image/jpeg", 0.82));
+        cx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, 0, 0, w, h);
+        res(cv.toDataURL("image/jpeg", quality));
       };
       img.src = fr.result;
     };
@@ -787,6 +802,39 @@ function serviceEditor(existing) {
     : { name: "", price: 0, segments: [{ type: "active", mins: 30 }] };
 
   const box = el("div");
+
+  // photo
+  let img = svc.imageUrl || null;
+  const photo = el("div");
+  photo.style.marginBottom = "14px";
+  const pv = el("div", "svcpv", "No photo yet");
+  const file = el("input"); file.type = "file"; file.accept = "image/*"; file.className = "hidden";
+  const pick = el("button", "btn ghost sm", "Upload photo");
+  pick.style.marginTop = "8px";
+  const drop = el("button", "linkbtn", "Remove photo");
+  drop.style.marginLeft = "12px";
+
+  const paintPhoto = () => {
+    if (img) { pv.style.backgroundImage = "url(" + img + ")"; pv.textContent = ""; drop.classList.remove("hidden"); }
+    else { pv.style.backgroundImage = ""; pv.textContent = "No photo yet"; drop.classList.add("hidden"); }
+  };
+  pick.addEventListener("click", () => file.click());
+  file.addEventListener("change", async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try { img = await fileToDataUrl(f, 480, 270, 0.72); paintPhoto(); }
+    catch (err) { toast(err.message); }
+  });
+  drop.addEventListener("click", () => { img = null; paintPhoto(); });
+  paintPhoto();
+
+  photo.appendChild(pv);
+  photo.appendChild(file);
+  const prow = el("div", "row");
+  prow.appendChild(pick); prow.appendChild(drop);
+  photo.appendChild(prow);
+  photo.appendChild(el("div", "sm muted", "Clients see this when browsing your price list."));
+  box.appendChild(photo);
+
   const form = el("div");
   form.innerHTML =
     '<div class="field"><label for="e-n">Service name</label><input id="e-n"></div>' +
@@ -824,7 +872,7 @@ function serviceEditor(existing) {
     if (!svc.name) { toast("Give the service a name"); return false; }
     svc.segments = svc.segments.filter(s => s.mins > 0);
     if (!svc.segments.length) { toast("Add at least one stage with minutes"); return false; }
-    const payload = { name: svc.name, price: svc.price, segments: svc.segments, active: true };
+    const payload = { name: svc.name, price: svc.price, segments: svc.segments, imageUrl: img, active: true };
     if (existing) await updateDoc(doc(db, "salons", S.salonId, "services", existing.id), payload);
     else await addDoc(collection(db, "salons", S.salonId, "services"), payload);
     await loadServices();
@@ -842,7 +890,9 @@ function renderServices() {
     const free = (s.segments || []).filter(x => x.type === "passive").reduce((a, x) => a + x.mins, 0);
     const c = el("div", "card");
     c.innerHTML =
-      '<div class="row between"><div class="grow"><h3>' + esc(s.name) + '</h3>' +
+      '<div class="row">' +
+      '<div class="svcthumb"' + (s.imageUrl ? ' style="background-image:url(' + s.imageUrl + ')"' : '') + '></div>' +
+      '<div class="grow"><h3>' + esc(s.name) + '</h3>' +
       '<div class="sm muted mono">' + total + ' min · ' + rands(s.price) + '</div></div>' +
       (free ? '<span class="tag teal">' + free + ' min free</span>' : '') + '</div>' +
       '<div class="seglist" style="margin-top:10px"></div>' +
@@ -1598,6 +1648,7 @@ async function openSalon(s) {
     const c = el("div", "card");
     c.style.cursor = "pointer";
     c.innerHTML =
+      (svc.imageUrl ? '<div class="svcbanner" style="background-image:url(' + svc.imageUrl + ')"></div>' : '') +
       '<div class="row between"><div class="grow"><h3>' + esc(svc.name) + '</h3>' +
       '<div class="sm muted mono">' + total + ' min' + (free ? ' · ' + free + ' min processing' : '') + '</div></div>' +
       '<div class="mono" style="font-weight:600">' + rands(svc.price) + '</div></div>';

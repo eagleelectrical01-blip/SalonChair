@@ -173,6 +173,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
     <div class="field"><label for="a-email">Email</label><input id="a-email" type="email" autocomplete="email" placeholder="you@example.co.za"></div>
     <div class="field"><label for="a-pass">Password</label><input id="a-pass" type="password" autocomplete="current-password" placeholder="At least 6 characters"></div>
     <div class="field" id="a-namewrap"><label for="a-name">Your name</label><input id="a-name" placeholder="Full name"></div>
+    <div class="field" id="a-phonewrap"><label for="a-phone">WhatsApp number</label><input id="a-phone" type="tel" inputmode="tel" placeholder="082 000 0000"></div>
     <div class="field" id="a-rolewrap">
       <label>I am</label>
       <div class="chips">
@@ -210,7 +211,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
       </div>
       <div class="sm muted" style="margin-top:6px">Stand in your salon and tap the button, or paste coordinates from Google Maps.</div>
     </div>
-    <div class="field"><label for="ob-dep">Booking deposit (R) — 0 for none</label><input id="ob-dep" class="mono" type="number" min="0" value="0"></div>
+    <div class="field"><label for="ob-dep">Deposit to hold a slot (% of price) — 0 for none</label><input id="ob-dep" class="mono" type="number" min="0" max="100" value="10"></div>
     <div style="margin-top:16px"><button class="btn rose" id="ob-save">Open the salon</button></div>
     <p id="ob-err" class="sm hidden" style="color:var(--rose);margin:10px 0 0"></p>
   </div>
@@ -248,6 +249,16 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
   <div id="sty-list" style="margin-top:6px"></div>
 </section>
 
+<!-- ============ SALON: REMINDERS ============ -->
+<section id="s-rem" class="screen">
+  <div class="topbar between row">
+    <div><div class="eyebrow">Reminders</div><h2 id="rem-lbl">Tomorrow</h2></div>
+    <button class="btn ghost sm" id="rem-refresh">Refresh</button>
+  </div>
+  <div class="chips" id="rem-days" style="margin-bottom:14px"></div>
+  <div id="rem-list"></div>
+</section>
+
 <!-- ============ SALON: SETTINGS ============ -->
 <section id="s-set" class="screen">
   <div class="topbar"><h2>Salon</h2></div>
@@ -265,7 +276,17 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
       <div><label for="set-lng">Longitude</label><input id="set-lng" class="mono"></div>
     </div>
     <button class="btn ghost sm" id="set-loc" style="margin-top:10px">Use my current location</button>
-    <div class="field" style="margin-top:12px"><label for="set-dep">Booking deposit (R)</label><input id="set-dep" class="mono" type="number" min="0"></div>
+    <div class="field" style="margin-top:12px"><label for="set-dep">Deposit to hold a slot (% of price)</label><input id="set-dep" class="mono" type="number" min="0" max="100"></div>
+    <h3 style="margin:22px 0 4px">Banking details for deposits</h3>
+    <div class="sm muted" style="margin-bottom:10px">Clients pay by EFT. These appear on their payment screen.</div>
+    <div class="field"><label for="set-bank">Bank</label><input id="set-bank" placeholder="FNB"></div>
+    <div class="field"><label for="set-accname">Account name</label><input id="set-accname"></div>
+    <div class="field"><label for="set-accno">Account number</label><input id="set-accno" class="mono" inputmode="numeric"></div>
+    <div class="two" style="margin-top:12px">
+      <div><label for="set-branch">Branch code</label><input id="set-branch" class="mono" inputmode="numeric"></div>
+      <div><label for="set-acctype">Account type</label>
+        <select id="set-acctype"><option>Cheque</option><option>Savings</option><option>Business</option></select></div>
+    </div>
     <div style="margin-top:16px"><button class="btn rose" id="set-save">Save changes</button></div>
   </div>
   <button class="btn ghost" id="set-out" style="margin-top:8px">Sign out</button>
@@ -325,6 +346,24 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
   </div>
 </section>
 
+<!-- ============ CLIENT: PAY DEPOSIT (EFT) ============ -->
+<section id="s-pay" class="screen">
+  <div class="topbar"><button class="back" id="pay-back">←</button><div><div class="eyebrow">Deposit by EFT</div><h2 id="pay-amt">—</h2></div></div>
+  <div id="pay-body"></div>
+</section>
+
+<!-- ============ SALON: TRIAL EXPIRED ============ -->
+<section id="s-locked" class="screen">
+  <div style="padding:30px 0 18px">
+    <div class="eyebrow">Trial ended</div>
+    <h1 style="margin-top:10px">Time to subscribe</h1>
+    <p class="muted" style="margin-top:8px" id="lock-intro">Your free trial has finished. Pay by EFT to switch the salon back on.</p>
+  </div>
+  <div id="lock-body"></div>
+  <button class="btn ghost" id="lock-refresh" style="margin-top:10px">I have paid — check again</button>
+  <button class="btn ghost" id="lock-out" style="margin-top:8px">Sign out</button>
+</section>
+
 <!-- ============ CLIENT: MY BOOKINGS ============ -->
 <section id="s-mine" class="screen">
   <div class="topbar"><h2>My bookings</h2></div>
@@ -333,12 +372,47 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
   <button class="btn ghost" id="mine-out">Sign out</button>
 </section>
 
+<!-- ============ SUPER ADMIN ============ -->
+<section id="s-admin" class="screen">
+  <div class="topbar between row">
+    <div><div class="eyebrow">Super admin</div><h2>Salons</h2></div>
+    <button class="btn ghost sm" id="ad-refresh">Refresh</button>
+  </div>
+  <div id="ad-summary"></div>
+  <div id="ad-list"></div>
+</section>
+
+<section id="s-billing" class="screen">
+  <div class="topbar"><h2>My billing details</h2></div>
+  <p class="sm muted" style="margin-top:-8px">Salons see these when their trial ends.</p>
+  <div class="card" style="margin-top:14px">
+    <div class="field"><label for="pf-fee">Monthly fee (R)</label><input id="pf-fee" class="mono" type="number" min="0"></div>
+    <div class="field"><label for="pf-trial">Trial length (days)</label><input id="pf-trial" class="mono" type="number" min="0"></div>
+    <div class="field"><label for="pf-bank">Bank</label><input id="pf-bank"></div>
+    <div class="field"><label for="pf-accname">Account name</label><input id="pf-accname"></div>
+    <div class="field"><label for="pf-accno">Account number</label><input id="pf-accno" class="mono" inputmode="numeric"></div>
+    <div class="two" style="margin-top:12px">
+      <div><label for="pf-branch">Branch code</label><input id="pf-branch" class="mono" inputmode="numeric"></div>
+      <div><label for="pf-acctype">Account type</label>
+        <select id="pf-acctype"><option>Cheque</option><option>Savings</option><option>Business</option></select></div>
+    </div>
+    <div class="field" style="margin-top:12px"><label for="pf-wa">Your WhatsApp number</label><input id="pf-wa" placeholder="+27 82 000 0000"></div>
+    <div style="margin-top:16px"><button class="btn rose" id="pf-save">Save billing details</button></div>
+  </div>
+  <button class="btn ghost" id="ad-out" style="margin-top:8px">Sign out</button>
+</section>
+
 <!-- ============ TAB BARS ============ -->
 <nav class="tabbar hidden" id="tabs-salon">
   <button data-go="s-cal" class="on"><span class="ic">▤</span>Calendar</button>
   <button data-go="s-svc"><span class="ic">✂</span>Services</button>
   <button data-go="s-sty"><span class="ic">☺</span>Stylists</button>
+  <button data-go="s-rem"><span class="ic">✆</span>Remind<span id="rem-badge" class="badge hidden">0</span></button>
   <button data-go="s-set"><span class="ic">⚙</span>Salon</button>
+</nav>
+<nav class="tabbar hidden" id="tabs-admin">
+  <button data-go="s-admin" class="on"><span class="ic">◈</span>Salons</button>
+  <button data-go="s-billing"><span class="ic">▦</span>My billing</button>
 </nav>
 <nav class="tabbar hidden" id="tabs-client">
   <button data-go="s-find" class="on"><span class="ic">◎</span>Find</button>
@@ -388,6 +462,8 @@ const min2hm = m => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m
 const dayKey = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 const keyToDate = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
 const rands = n => "R" + Number(n || 0).toFixed(0);
+const depositPctOf = salon => (salon && salon.depositPct != null) ? salon.depositPct : 10;
+const depositOn = (salon, total) => Math.round((Number(total) || 0) * depositPctOf(salon) / 100);
 
 function toast(msg) {
   const t = el("div", "toast", esc(msg));
@@ -564,14 +640,51 @@ const STARTER_SERVICES = [
   { name: "Treatment", price: 260, segments: [{ type: "active", mins: 15 }, { type: "passive", mins: 20 }, { type: "active", mins: 15 }] }
 ];
 
+/* ═══════════════════════════════════════════════════════════
+   PLATFORM CONFIG — the operator's own billing details, shown to
+   salons whose trial has run out. One document, readable by any
+   signed-in user, writable only by a super admin.
+   ═══════════════════════════════════════════════════════════ */
+const PLATFORM_DEFAULTS = { fee: 250, trialDays: 14, bankName: "", accName: "", accNo: "", branch: "", accType: "Cheque", whatsapp: "" };
+
+async function loadPlatform() {
+  try {
+    const d = await getDoc(doc(db, "config", "platform"));
+    return d.exists() ? { ...PLATFORM_DEFAULTS, ...d.data() } : { ...PLATFORM_DEFAULTS };
+  } catch (e) { return { ...PLATFORM_DEFAULTS }; }
+}
+async function trialDays() {
+  const p = await loadPlatform();
+  return Number(p.trialDays) || 14;
+}
+
+function bankTable(rows) {
+  const t = el("div", "card");
+  t.innerHTML = rows.map(r =>
+    '<div class="row between" style="padding:7px 0;border-bottom:1px solid var(--line)">' +
+    '<span class="sm muted">' + esc(r[0]) + '</span>' +
+    '<span class="mono" style="font-weight:600;text-align:right">' + esc(r[1] || "—") + '</span></div>'
+  ).join("");
+  const copy = el("button", "btn ghost sm", "Copy details");
+  copy.style.marginTop = "12px";
+  copy.addEventListener("click", async () => {
+    const txt = rows.map(r => r[0] + ": " + (r[1] || "")).join("\n");
+    try { await navigator.clipboard.writeText(txt); toast("Copied"); }
+    catch (e) { toast("Could not copy — write them down"); }
+  });
+  t.appendChild(copy);
+  return t;
+}
+
 /* ═══════════ app state ═══════════ */
 const S = {
-  uid: null, role: null, profile: null,
+  uid: null, role: null, profile: null, isAdmin: false,
   salonId: null, salon: null,
   services: [], stylists: [],
   calDate: new Date(),
   calMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   monthBookings: {},
+  remDay: null,
   here: null, radiusKm: 15, results: [],
   pick: { salon: null, services: [], stylistId: null, dayKey: null, startMin: null }
 };
@@ -583,7 +696,11 @@ function show(id) {
   window.scrollTo(0, 0);
 }
 document.querySelectorAll(".tabbar button").forEach(b => {
-  b.addEventListener("click", () => { show(b.dataset.go); if (b.dataset.go === "s-mine") loadMyBookings(); });
+  b.addEventListener("click", () => {
+    show(b.dataset.go);
+    if (b.dataset.go === "s-mine") loadMyBookings();
+    if (b.dataset.go === "s-rem") loadReminders();
+  });
 });
 
 function sheet(title, bodyNode, onSave, saveLabel) {
@@ -629,6 +746,7 @@ $("a-toggle").addEventListener("click", () => {
   $("a-go").textContent = up ? "Create account" : "Sign in";
   $("a-toggle").textContent = up ? "I already have an account" : "I need an account";
   $("a-namewrap").classList.toggle("hidden", !up);
+  $("a-phonewrap").classList.toggle("hidden", !up);
   $("a-rolewrap").classList.toggle("hidden", !up);
 });
 
@@ -636,18 +754,20 @@ $("a-go").addEventListener("click", async () => {
   const email = $("a-email").value.trim();
   const pass = $("a-pass").value;
   const name = $("a-name").value.trim();
+  const phone = $("a-phone").value.trim();
   const err = $("a-err");
   err.classList.add("hidden");
 
   if (!email || !pass) { err.textContent = "Enter an email address and a password."; err.classList.remove("hidden"); return; }
   if (authMode === "signup" && !name) { err.textContent = "Enter your name so the salon knows who is booking."; err.classList.remove("hidden"); return; }
+  if (authMode === "signup" && phone.replace(/[^0-9]/g, "").length < 9) { err.textContent = "Enter a WhatsApp number — the salon needs it to reach you about your booking."; err.classList.remove("hidden"); return; }
 
   $("a-go").disabled = true;
   try {
     if (authMode === "signup") {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
       await setDoc(doc(db, "users", cred.user.uid), {
-        name, email, role: authRole, salonId: null, createdAt: serverTimestamp()
+        name, email, phone, role: authRole, salonId: null, createdAt: serverTimestamp()
       });
     } else {
       await signInWithEmailAndPassword(auth, email, pass);
@@ -675,6 +795,8 @@ onAuthStateChanged(auth, async user => {
   $("boot").classList.add("hidden");
   $("tabs-salon").classList.add("hidden");
   $("tabs-client").classList.add("hidden");
+  $("tabs-admin").classList.add("hidden");
+  S.isAdmin = false;
 
   if (!user) { S.uid = null; show("s-auth"); return; }
   S.uid = user.uid;
@@ -682,6 +804,13 @@ onAuthStateChanged(auth, async user => {
   const snap = await getDoc(doc(db, "users", user.uid));
   S.profile = snap.exists() ? snap.data() : { role: "client", name: user.email };
   S.role = S.profile.role || "client";
+
+  // super admin is granted by a document at admins/{uid}, created in the
+  // Firebase console — never self-service from inside the app
+  try {
+    const adm = await getDoc(doc(db, "admins", user.uid));
+    if (adm.exists()) { S.isAdmin = true; await loadAdminWorkspace(); return; }
+  } catch (e) {}
 
   if (S.role === "salon") {
     S.salonId = S.profile.salonId || null;
@@ -728,7 +857,10 @@ $("ob-save").addEventListener("click", async () => {
       phone: $("ob-phone").value.trim(),
       logoUrl: obLogo || null,
       lat, lng,
-      deposit: Number($("ob-dep").value) || 0,
+      depositPct: Math.max(0, Math.min(100, Number($("ob-dep").value) || 0)),
+      ownerEmail: (auth.currentUser && auth.currentUser.email) || "",
+      plan: "trial",
+      trialEndsAt: Date.now() + (await trialDays()) * 86400000,
       ownerUid: S.uid,
       active: true,
       createdAt: serverTimestamp()
@@ -757,11 +889,17 @@ $("ob-save").addEventListener("click", async () => {
 async function loadSalonWorkspace() {
   const sd = await getDoc(doc(db, "salons", S.salonId));
   S.salon = { id: S.salonId, ...sd.data() };
+
+  if (S.salon.plan !== "active" && S.salon.trialEndsAt && Date.now() > S.salon.trialEndsAt) {
+    await showLocked();
+    return;
+  }
   await Promise.all([loadServices(), loadStylists()]);
   $("tabs-salon").classList.remove("hidden");
   fillSettings();
   show("s-cal");
   renderCalendar();
+  refreshRemBadge();
 }
 
 async function loadServices() {
@@ -1358,7 +1496,8 @@ function bookingSheet(b) {
     '<div class="sm mono" style="margin-top:8px">' + esc(when) + ' · ' + rands(b.total) + '</div>' +
     (b.clientPhone ? '<div class="sm muted" style="margin-top:6px">' + esc(b.clientPhone) + '</div>' : '') +
     (b.status === "cancelled" ? '<div class="tag rose" style="margin-top:10px">Cancelled</div>' : '') +
-    (b.depositDue ? '<div class="tag rose" style="margin-top:10px">Deposit ' + rands(b.depositDue) + ' ' + (b.depositPaid ? 'paid' : 'outstanding') + '</div>' : '') +
+    (b.depositDue ? '<div class="tag ' + (b.depositPaid ? 'teal' : 'rose') + '" style="margin-top:10px">Deposit ' + rands(b.depositDue) + ' ' +
+      (b.depositPaid ? 'received' : b.depositClaimed ? 'claimed by client — not confirmed' : 'outstanding') + '</div>' : '') +
     (b.cancelReason ? '<div class="sm" style="margin-top:10px"><b>Reason given:</b> ' + esc(b.cancelReason) + '</div>' : '') +
     '</div>';
 
@@ -1383,6 +1522,21 @@ function bookingSheet(b) {
         " on " + b.dayKey + " at " + min2hm(b.startMin) + " for " + b.serviceNames + " — "), "_blank");
     });
     box.appendChild(wa);
+  }
+
+  if (b.depositDue > 0 && !b.depositPaid) {
+    const got = el("button", "btn ghost", b.depositClaimed
+      ? "Client says paid — confirm " + rands(b.depositDue) + " received"
+      : "Mark " + rands(b.depositDue) + " deposit received");
+    got.style.marginTop = "8px";
+    got.addEventListener("click", async () => {
+      try {
+        await applyBookingPatch(b, { depositPaid: true, clientUnread: true });
+        toast("Deposit marked received");
+        closeAll(); renderCalendar();
+      } catch (e) { toast("Could not update — " + (e.code || e.message)); }
+    });
+    box.appendChild(got);
   }
 
   const del = el("button", "btn ghost", "Delete permanently");
@@ -1501,6 +1655,339 @@ function cancelSheet(b) {
   }, "Cancel booking");
 }
 
+/* ═══════════════════════════════════════════════════════════
+   REMINDERS
+   No server here, so nothing fires on a schedule. This is the
+   salon's daily call list: tomorrow's clients, one tap each to
+   send a prefilled WhatsApp, and a record of who has been done.
+   ═══════════════════════════════════════════════════════════ */
+
+/** Two equality filters — no composite index needed. */
+async function fetchDayBookings(salonId, key) {
+  const q1 = query(
+    collection(db, "salons", salonId, "bookings"),
+    where("ownerUid", "==", S.uid),
+    where("dayKey", "==", key)
+  );
+  const snap = await getDocs(q1);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+const addDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return d; };
+
+function reminderText(b) {
+  const d = keyToDate(b.dayKey);
+  const when = DOWLBL[d.getDay()] + " " + d.getDate() + " " + MONTHS[d.getMonth()] + " at " + min2hm(b.startMin);
+  const dep = (b.depositDue && !b.depositPaid)
+    ? " A " + rands(b.depositDue) + " deposit is still outstanding."
+    : "";
+  return "Hi " + b.clientName + ", a reminder of your appointment at " + S.salon.name +
+    " on " + when + " for " + b.serviceNames + " with " + b.stylistName + "." + dep +
+    " Please let us know if you need to change it.";
+}
+
+$("rem-refresh").addEventListener("click", () => loadReminders());
+
+async function refreshRemBadge() {
+  const badge = $("rem-badge");
+  if (!badge || !S.salonId) return;
+  try {
+    const list = (await fetchDayBookings(S.salonId, dayKey(addDays(1))))
+      .filter(b => b.status !== "cancelled" && !b.reminded);
+    badge.textContent = String(list.length);
+    badge.classList.toggle("hidden", list.length === 0);
+  } catch (e) { badge.classList.add("hidden"); }
+}
+
+function renderRemDays() {
+  const host = $("rem-days");
+  host.innerHTML = "";
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(i);
+    const k = dayKey(d);
+    const label = i === 0 ? "Today" : i === 1 ? "Tomorrow"
+      : DOWLBL[d.getDay()] + " " + d.getDate() + "/" + (d.getMonth() + 1);
+    const ch = el("button", "chip" + (k === S.remDay ? " on" : ""), esc(label));
+    ch.addEventListener("click", () => { S.remDay = k; loadReminders(); });
+    host.appendChild(ch);
+  }
+}
+
+async function loadReminders() {
+  if (!S.remDay) S.remDay = dayKey(addDays(1));
+  renderRemDays();
+
+  const d = keyToDate(S.remDay);
+  const todayK = dayKey(new Date());
+  $("rem-lbl").textContent = S.remDay === todayK ? "Today"
+    : S.remDay === dayKey(addDays(1)) ? "Tomorrow"
+    : DOWLBL[d.getDay()] + " " + d.getDate() + " " + MONTHS[d.getMonth()];
+
+  const host = $("rem-list");
+  host.innerHTML = '<div class="spin"></div>';
+
+  let list;
+  try { list = await fetchDayBookings(S.salonId, S.remDay); }
+  catch (e) {
+    host.innerHTML = '<div class="empty">Could not load that day &mdash; ' + esc(e.code || e.message) + '</div>';
+    return;
+  }
+
+  list = list.filter(b => b.status !== "cancelled").sort((a, b) => a.startMin - b.startMin);
+  host.innerHTML = "";
+
+  if (!list.length) {
+    host.appendChild(el("div", "empty", "Nothing booked that day."));
+    refreshRemBadge();
+    return;
+  }
+
+  const pending = list.filter(b => !b.reminded).length;
+  const head = el("div", "card");
+  head.innerHTML = '<div class="row between"><div><div class="eyebrow">Still to remind</div>' +
+    '<h2>' + pending + ' <span class="muted" style="font-size:15px;font-weight:400">of ' + list.length + '</span></h2></div>' +
+    '<div style="text-align:right"><div class="eyebrow">First in</div>' +
+    '<h2 class="mono">' + min2hm(list[0].startMin) + '</h2></div></div>';
+  host.appendChild(head);
+
+  list.forEach(b => {
+    const c = el("div", "card");
+    if (b.reminded) c.style.opacity = ".6";
+
+    c.innerHTML =
+      '<div class="row between"><div class="grow">' +
+      '<h3>' + esc(b.clientName) + (b.reminded ? ' <span class="tag teal">reminded</span>' : '') + '</h3>' +
+      '<div class="sm muted">' + esc(b.serviceNames) + ' with ' + esc(b.stylistName) + '</div>' +
+      (b.clientPhone ? '<div class="sm muted mono">' + esc(b.clientPhone) + '</div>'
+                     : '<div class="sm" style="color:var(--rose)">No phone number on file</div>') +
+      '</div><div class="mono" style="font-weight:600">' + min2hm(b.startMin) + '</div></div>' +
+      ((b.depositDue && !b.depositPaid) ? '<div class="tag rose" style="margin-top:8px">Deposit ' + rands(b.depositDue) + ' outstanding</div>' : '');
+
+    const row = el("div", "row");
+    row.style.gap = "8px";
+    row.style.marginTop = "12px";
+
+    if (b.clientPhone) {
+      const wa = el("button", "btn rose sm", b.reminded ? "Send again" : "WhatsApp reminder");
+      wa.addEventListener("click", async () => {
+        window.open(waLink(b, reminderText(b)), "_blank");
+        // Opening the link is the best signal we have that it was sent —
+        // there is no way to confirm delivery from inside the browser.
+        try {
+          await updateDoc(doc(db, "salons", S.salonId, "bookings", b.id),
+            { reminded: true, remindedAt: serverTimestamp() });
+        } catch (e) { toast("Could not mark it sent — " + (e.code || e.message)); }
+        loadReminders();
+      });
+      row.appendChild(wa);
+    }
+
+    const toggle = el("button", "btn ghost sm", b.reminded ? "Mark unsent" : "Mark sent");
+    toggle.addEventListener("click", async () => {
+      try {
+        await updateDoc(doc(db, "salons", S.salonId, "bookings", b.id), { reminded: !b.reminded });
+        loadReminders();
+      } catch (e) { toast("Could not update — " + (e.code || e.message)); }
+    });
+    row.appendChild(toggle);
+
+    c.appendChild(row);
+    host.appendChild(c);
+  });
+
+  refreshRemBadge();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TRIAL GATE
+   ═══════════════════════════════════════════════════════════ */
+$("lock-out").addEventListener("click", () => signOut(auth));
+$("lock-refresh").addEventListener("click", () => loadSalonWorkspace());
+
+async function showLocked() {
+  $("tabs-salon").classList.add("hidden");
+  show("s-locked");
+  const body = $("lock-body");
+  body.innerHTML = '<div class="spin"></div>';
+
+  const pf = await loadPlatform();
+  $("lock-intro").textContent =
+    "The free trial for " + (S.salon.name || "your salon") + " has ended. Pay the monthly fee by EFT and it switches straight back on.";
+
+  body.innerHTML = "";
+  const fee = el("div", "card");
+  fee.innerHTML = '<div class="row between"><div><div class="eyebrow">Monthly</div>' +
+    '<h2 class="mono">' + rands(pf.fee) + '</h2></div></div>';
+  body.appendChild(fee);
+
+  body.appendChild(bankTable([
+    ["Bank", pf.bankName],
+    ["Account name", pf.accName],
+    ["Account number", pf.accNo],
+    ["Branch code", pf.branch],
+    ["Account type", pf.accType],
+    ["Amount", rands(pf.fee)],
+    ["Reference", S.salon.name || ""]
+  ]));
+
+  if (pf.whatsapp) {
+    const wa = el("button", "btn rose", "Send proof of payment");
+    wa.addEventListener("click", () => {
+      const num = String(pf.whatsapp).replace(/[^0-9]/g, "").replace(/^0/, "27");
+      window.open("https://wa.me/" + num + "?text=" + encodeURIComponent(
+        "Hi, this is " + (S.salon.name || "") + ". I have paid the " + rands(pf.fee) +
+        " monthly fee. Please reactivate our account."), "_blank");
+    });
+    body.appendChild(wa);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SUPER ADMIN
+   ═══════════════════════════════════════════════════════════ */
+$("ad-out").addEventListener("click", () => signOut(auth));
+$("ad-refresh").addEventListener("click", () => loadAdminSalons());
+
+async function loadAdminWorkspace() {
+  $("tabs-admin").classList.remove("hidden");
+  show("s-admin");
+  await fillPlatformForm();
+  await loadAdminSalons();
+}
+
+async function fillPlatformForm() {
+  const pf = await loadPlatform();
+  $("pf-fee").value = pf.fee;
+  $("pf-trial").value = pf.trialDays;
+  $("pf-bank").value = pf.bankName;
+  $("pf-accname").value = pf.accName;
+  $("pf-accno").value = pf.accNo;
+  $("pf-branch").value = pf.branch;
+  $("pf-acctype").value = pf.accType || "Cheque";
+  $("pf-wa").value = pf.whatsapp;
+}
+
+$("pf-save").addEventListener("click", async () => {
+  const payload = {
+    fee: Number($("pf-fee").value) || 0,
+    trialDays: Number($("pf-trial").value) || 14,
+    bankName: $("pf-bank").value.trim(),
+    accName: $("pf-accname").value.trim(),
+    accNo: $("pf-accno").value.trim(),
+    branch: $("pf-branch").value.trim(),
+    accType: $("pf-acctype").value,
+    whatsapp: $("pf-wa").value.trim()
+  };
+  try {
+    await setDoc(doc(db, "config", "platform"), payload, { merge: true });
+    toast("Billing details saved");
+  } catch (e) { toast("Could not save — " + (e.code || e.message)); }
+});
+
+function daysLeft(salon) {
+  if (!salon.trialEndsAt) return null;
+  return Math.ceil((salon.trialEndsAt - Date.now()) / 86400000);
+}
+
+async function loadAdminSalons() {
+  const host = $("ad-list");
+  const sum = $("ad-summary");
+  host.innerHTML = '<div class="spin"></div>';
+  sum.innerHTML = "";
+
+  let list;
+  try {
+    const snap = await getDocs(collection(db, "salons"));
+    list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    host.innerHTML = '<div class="empty">Could not load salons &mdash; ' + esc(e.code || e.message) + '</div>';
+    return;
+  }
+
+  const paying = list.filter(s => s.plan === "active").length;
+  const expired = list.filter(s => s.plan !== "active" && s.trialEndsAt && Date.now() > s.trialEndsAt).length;
+  const card = el("div", "card");
+  card.innerHTML =
+    '<div class="row between">' +
+    '<div><div class="eyebrow">Salons</div><h2>' + list.length + '</h2></div>' +
+    '<div style="text-align:center"><div class="eyebrow">Paying</div><h2>' + paying + '</h2></div>' +
+    '<div style="text-align:right"><div class="eyebrow">Lapsed</div><h2>' + expired + '</h2></div></div>';
+  sum.appendChild(card);
+
+  host.innerHTML = "";
+  if (!list.length) { host.appendChild(el("div", "empty", "No salons have signed up yet.")); return; }
+
+  list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+  list.forEach(s => {
+    const left = daysLeft(s);
+    const active = s.plan === "active";
+    const lapsed = !active && left != null && left <= 0;
+
+    const c = el("div", "card");
+    const row = el("div", "row");
+    const lg = el("div", "logo"); paintLogo(lg, s);
+    const info = el("div", "grow");
+    info.innerHTML = '<h3>' + esc(s.name || "Unnamed") + '</h3>' +
+      '<div class="sm muted">' + esc(s.ownerEmail || "no email on file") + '</div>' +
+      '<div class="sm muted">' + esc(s.address || "") + '</div>' +
+      '<div style="margin-top:6px">' +
+      (active ? '<span class="tag teal">Subscribed</span>'
+        : lapsed ? '<span class="tag rose">Trial ended</span>'
+        : left != null ? '<span class="tag rose">Trial · ' + left + ' days left</span>'
+        : '<span class="tag rose">No trial set</span>') +
+      (s.active === false ? ' <span class="tag rose">Suspended</span>' : '') +
+      '</div>';
+    row.appendChild(lg); row.appendChild(info);
+    c.appendChild(row);
+
+    const acts = el("div", "row");
+    acts.style.gap = "8px"; acts.style.marginTop = "12px"; acts.style.flexWrap = "wrap";
+
+    const patch = async (obj, msg) => {
+      try { await updateDoc(doc(db, "salons", s.id), obj); toast(msg); loadAdminSalons(); }
+      catch (e) { toast("Could not update — " + (e.code || e.message)); }
+    };
+
+    const sub = el("button", "btn ghost sm", active ? "Mark unpaid" : "Mark subscribed");
+    sub.addEventListener("click", () => patch(
+      active ? { plan: "trial", trialEndsAt: Date.now() } : { plan: "active" },
+      active ? "Moved off subscription" : "Marked subscribed"));
+    acts.appendChild(sub);
+
+    const ext = el("button", "btn ghost sm", "+30 days");
+    ext.addEventListener("click", () => patch(
+      { plan: "trial", trialEndsAt: Math.max(Date.now(), s.trialEndsAt || Date.now()) + 30 * 86400000 },
+      "Trial extended"));
+    acts.appendChild(ext);
+
+    const susp = el("button", "btn ghost sm", s.active === false ? "Unsuspend" : "Suspend");
+    susp.addEventListener("click", () => patch({ active: s.active === false }, "Updated"));
+    acts.appendChild(susp);
+
+    if (s.phone) {
+      const wa = el("button", "btn rose sm", "Send my banking details");
+      wa.addEventListener("click", async () => {
+        const pf = await loadPlatform();
+        const num = String(s.phone).replace(/[^0-9]/g, "").replace(/^0/, "27");
+        const msg = "Hi " + (s.name || "") + ", to keep using the booking app the monthly fee is " +
+          rands(pf.fee) + ".\n\nBank: " + pf.bankName +
+          "\nAccount name: " + pf.accName +
+          "\nAccount number: " + pf.accNo +
+          "\nBranch code: " + pf.branch +
+          "\nAccount type: " + pf.accType +
+          "\nReference: " + (s.name || "") +
+          "\n\nSend me proof of payment and I will switch it back on.";
+        window.open("https://wa.me/" + num + "?text=" + encodeURIComponent(msg), "_blank");
+      });
+      acts.appendChild(wa);
+    }
+
+    c.appendChild(acts);
+    host.appendChild(c);
+  });
+}
+
 /* ─────────── Salon settings ─────────── */
 let setLogo = null;
 function fillSettings() {
@@ -1510,7 +1997,12 @@ function fillSettings() {
   $("set-phone").value = S.salon.phone || "";
   $("set-lat").value = S.salon.lat != null ? S.salon.lat : "";
   $("set-lng").value = S.salon.lng != null ? S.salon.lng : "";
-  $("set-dep").value = S.salon.deposit || 0;
+  $("set-dep").value = S.salon.depositPct != null ? S.salon.depositPct : 10;
+  $("set-bank").value = S.salon.bankName || "";
+  $("set-accname").value = S.salon.bankAccName || "";
+  $("set-accno").value = S.salon.bankAccNo || "";
+  $("set-branch").value = S.salon.bankBranch || "";
+  $("set-acctype").value = S.salon.bankAccType || "Cheque";
 }
 $("set-logopick").addEventListener("click", () => $("set-logofile").click());
 $("set-logofile").addEventListener("change", async e => {
@@ -1531,7 +2023,12 @@ $("set-save").addEventListener("click", async () => {
     address: $("set-addr").value.trim(),
     phone: $("set-phone").value.trim(),
     lat, lng,
-    deposit: Number($("set-dep").value) || 0
+    depositPct: Math.max(0, Math.min(100, Number($("set-dep").value) || 0)),
+    bankName: $("set-bank").value.trim(),
+    bankAccName: $("set-accname").value.trim(),
+    bankAccNo: $("set-accno").value.trim(),
+    bankBranch: $("set-branch").value.trim(),
+    bankAccType: $("set-acctype").value
   };
   if (setLogo) patch.logoUrl = setLogo;
   await updateDoc(doc(db, "salons", S.salonId), patch);
@@ -1625,8 +2122,10 @@ async function openSalon(s) {
   $("sa-addr").textContent = s.address || "";
   $("sa-dist").textContent = s.km != null ? s.km.toFixed(1) + " km away" : "";
   const dep = $("sa-dep");
-  if (s.deposit > 0) { dep.className = "sm"; dep.innerHTML = '<span class="tag rose">' + rands(s.deposit) + ' deposit to hold the slot</span>'; }
-  else dep.className = "sm hidden";
+  if (depositPctOf(s) > 0) {
+    dep.className = "sm";
+    dep.innerHTML = '<span class="tag rose">' + depositPctOf(s) + '% deposit by EFT to hold your slot</span>';
+  } else dep.className = "sm hidden";
 
   show("s-salon");
   const host = $("sa-svcs");
@@ -1661,7 +2160,9 @@ async function openSalon(s) {
       $("sa-bar").classList.toggle("hidden", n === 0);
       const mins = totalMins(combineSegments(S.pick.services));
       const price = S.pick.services.reduce((a, x) => a + (x.price || 0), 0);
-      $("sa-nextlbl").textContent = "Continue · " + mins + " min · " + rands(price);
+      const dep = depositOn(S.pick.salon, price);
+      $("sa-nextlbl").textContent = "Continue · " + mins + " min · " + rands(price) +
+        (dep > 0 ? " · " + rands(dep) + " deposit" : "");
     });
     host.appendChild(c);
   });
@@ -1792,7 +2293,9 @@ $("bk-confirm").addEventListener("click", async () => {
       startMin: p.startMin,
       totalMins: span,
       total,
-      depositDue: p.salon.deposit || 0,
+      depositDue: depositOn(p.salon, total),
+      depositPct: depositPctOf(p.salon),
+      depositClaimed: false,
       depositPaid: false,
       status: "confirmed",
       createdAt: serverTimestamp()
@@ -1803,13 +2306,102 @@ $("bk-confirm").addEventListener("click", async () => {
     try { await setDoc(doc(db, "clients", S.uid, "bookings", ref.id), booking); } catch (e) {}
 
     toast("Booked · " + min2hm(p.startMin));
-    show("s-mine");
-    loadMyBookings();
+    if (booking.depositDue > 0) openPayScreen({ id: ref.id, ...booking }, "s-mine");
+    else { show("s-mine"); loadMyBookings(); }
   } catch (e) {
     toast("Could not save that booking. Try again.");
   }
   btn.disabled = false;
 });
+
+/* ═══════════════════════════════════════════════════════════
+   DEPOSIT PAYMENT — EFT only. No gateway, no card handling.
+   The client sees the salon's account details and a reference;
+   the salon confirms the money landed.
+   ═══════════════════════════════════════════════════════════ */
+let payReturn = "s-mine";
+$("pay-back").addEventListener("click", () => { show(payReturn); if (payReturn === "s-mine") loadMyBookings(); });
+
+async function openPayScreen(b, backTo) {
+  payReturn = backTo || "s-mine";
+  show("s-pay");
+  const body = $("pay-body");
+  $("pay-amt").textContent = rands(b.depositDue) + " due";
+  body.innerHTML = '<div class="spin"></div>';
+
+  let salon = { };
+  try {
+    const sd = await getDoc(doc(db, "salons", b.salonId));
+    if (sd.exists()) salon = sd.data();
+  } catch (e) {}
+
+  body.innerHTML = "";
+
+  const head = el("div", "card");
+  head.innerHTML =
+    '<div class="eyebrow">' + esc(b.salonName) + '</div>' +
+    '<h3 style="margin-top:4px">' + esc(b.serviceNames) + '</h3>' +
+    '<div class="sm muted">' + esc(b.dayKey) + ' at ' + min2hm(b.startMin) + ' with ' + esc(b.stylistName) + '</div>' +
+    '<div class="row between" style="margin-top:12px">' +
+    '<span class="sm muted">Service total</span><span class="mono">' + rands(b.total) + '</span></div>' +
+    '<div class="row between" style="margin-top:4px">' +
+    '<span class="sm muted">Deposit (' + (b.depositPct != null ? b.depositPct : depositPctOf(salon)) + '%)</span>' +
+    '<span class="mono" style="font-weight:700;color:var(--rose)">' + rands(b.depositDue) + '</span></div>';
+  body.appendChild(head);
+
+  const hasBank = salon.bankAccNo || salon.bankName;
+  if (!hasBank) {
+    body.appendChild(el("div", "empty",
+      "This salon has not added banking details yet. Message them to arrange the deposit."));
+  } else {
+    body.appendChild(el("div", "eyebrow", "Pay by EFT"));
+    body.appendChild(bankTable([
+      ["Bank", salon.bankName],
+      ["Account name", salon.bankAccName],
+      ["Account number", salon.bankAccNo],
+      ["Branch code", salon.bankBranch],
+      ["Account type", salon.bankAccType],
+      ["Amount", rands(b.depositDue)],
+      ["Reference", b.clientName]
+    ]));
+    const note = el("div", "card");
+    note.innerHTML = '<div class="sm"><b>Use your own name as the reference</b> — ' +
+      esc(b.clientName) + ' — so the salon can match the payment to your booking.</div>';
+    body.appendChild(note);
+  }
+
+  if (b.depositPaid) {
+    body.appendChild(el("div", "card", '<span class="tag teal">Deposit confirmed received</span>'));
+  } else if (b.depositClaimed) {
+    body.appendChild(el("div", "card",
+      '<span class="tag rose">Waiting for the salon to confirm</span>' +
+      '<div class="sm muted" style="margin-top:8px">You marked this as paid. The salon will confirm once it reflects.</div>'));
+  } else if (hasBank) {
+    const done = el("button", "btn rose", "I have made the EFT");
+    done.addEventListener("click", async () => {
+      try {
+        await updateDoc(doc(db, "clients", S.uid, "bookings", b.id), { depositClaimed: true });
+        try { await updateDoc(doc(db, "salons", b.salonId, "bookings", b.id), { depositClaimed: true, clientUnread: false }); } catch (e) {}
+        b.depositClaimed = true;
+        toast("The salon has been told");
+        openPayScreen(b, payReturn);
+      } catch (e) { toast("Could not update — " + (e.code || e.message)); }
+    });
+    body.appendChild(done);
+  }
+
+  if (salon.phone) {
+    const wa = el("button", "btn ghost", "WhatsApp the salon");
+    wa.style.marginTop = "8px";
+    wa.addEventListener("click", () => {
+      const num = String(salon.phone).replace(/[^0-9]/g, "").replace(/^0/, "27");
+      window.open("https://wa.me/" + num + "?text=" + encodeURIComponent(
+        "Hi, this is " + b.clientName + ". I am paying the " + rands(b.depositDue) +
+        " deposit for " + b.serviceNames + " on " + b.dayKey + " at " + min2hm(b.startMin) + "."), "_blank");
+    });
+    body.appendChild(wa);
+  }
+}
 
 /* ─────────── Client: my bookings ─────────── */
 async function refreshBadge() {
@@ -1908,6 +2500,13 @@ async function loadMyBookings() {
           });
           c.appendChild(row);
         });
+      }
+
+      if (!past && !dead && b.depositDue > 0 && !b.depositPaid) {
+        const pay = el("button", "btn rose sm", b.depositClaimed ? "Deposit details" : "Pay " + rands(b.depositDue) + " deposit");
+        pay.style.marginTop = "12px";
+        pay.addEventListener("click", () => openPayScreen(b, "s-mine"));
+        c.appendChild(pay);
       }
 
       if (!past && !dead) {

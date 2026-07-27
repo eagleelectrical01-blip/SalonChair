@@ -22,6 +22,9 @@
   --line:#E3DFE9;
   --shadow:0 1px 2px rgba(22,22,29,.06), 0 8px 24px rgba(22,22,29,.06);
   --r:14px;
+  /* The tab bar is fixed and grows by the phone's gesture-bar inset.
+     Everything that has to clear it measures against this. */
+  --tabh:calc(66px + env(safe-area-inset-bottom));
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
@@ -44,7 +47,7 @@ h3{font-size:16px;font-weight:600;letter-spacing:-.01em}
 .hidden{display:none !important}
 
 /* layout */
-.screen{display:none;max-width:560px;margin:0 auto;padding:18px 16px 96px}
+.screen{display:none;max-width:560px;margin:0 auto;padding:18px 16px calc(var(--tabh) + 28px)}
 .screen.on{display:block}
 .topbar{display:flex;align-items:center;gap:12px;margin-bottom:18px;min-height:34px}
 .back{background:none;border:0;font-size:22px;line-height:1;padding:4px 8px 4px 0;color:var(--ink);cursor:pointer}
@@ -120,9 +123,19 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .tabbar button .ic{display:block;font-size:19px;line-height:1.3}
 .tabbar button.on{color:var(--rose)}
 
+/* Sticky call-to-action above the tab bar. z-index must beat .tabbar (40)
+   or the bar paints over the button and eats the tap. */
+.stickybar{
+  position:sticky;
+  bottom:calc(var(--tabh) + 10px);
+  z-index:45;
+  padding-top:10px;
+  background:linear-gradient(to top, var(--paper) 62%, transparent);
+}
+
 /* misc */
 .empty{border:1px dashed var(--line);border-radius:var(--r);padding:28px 18px;text-align:center;color:var(--muted)}
-.toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:var(--ink);color:#fff;
+.toast{position:fixed;left:50%;bottom:calc(var(--tabh) + 16px);transform:translateX(-50%);background:var(--ink);color:#fff;
   padding:11px 17px;border-radius:11px;font-size:14px;z-index:90;max-width:88vw;box-shadow:var(--shadow)}
 .sheet{position:fixed;inset:0;background:rgba(22,22,29,.45);display:flex;align-items:flex-end;z-index:80}
 .sheet .inner{background:var(--paper);width:100%;max-width:560px;margin:0 auto;border-radius:20px 20px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto}
@@ -328,7 +341,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
   </div>
   <h3 style="margin:20px 0 10px">Choose your services</h3>
   <div id="sa-svcs"></div>
-  <div id="sa-bar" class="hidden" style="position:sticky;bottom:78px;padding-top:10px">
+  <div id="sa-bar" class="stickybar hidden">
     <button class="btn rose" id="sa-next"><span id="sa-nextlbl">Continue</span></button>
   </div>
 </section>
@@ -348,7 +361,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
     <label>Available start times</label>
     <div id="bk-slots"></div>
   </div>
-  <div id="bk-bar" class="hidden" style="position:sticky;bottom:78px;padding-top:10px">
+  <div id="bk-bar" class="stickybar hidden">
     <button class="btn rose" id="bk-confirm">Confirm booking</button>
   </div>
 </section>
@@ -2881,8 +2894,13 @@ if ("serviceWorker" in navigator) {
         const c=r.clone(); caches.open(C).then(x=>x.put(e.request,c)); return r;
       }).catch(()=>caches.match(e.request)));
     });`;
-  const url = URL.createObjectURL(new Blob([sw], { type: "text/javascript" }));
-  navigator.serviceWorker.register(url).catch(() => {});
+  // Each page load minted a new blob URL, so every visit registered ANOTHER
+  // service worker and they piled up. Register once and leave it alone.
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    if (regs.length) return;
+    const url = URL.createObjectURL(new Blob([sw], { type: "text/javascript" }));
+    navigator.serviceWorker.register(url).catch(() => {});
+  }).catch(() => {});
 }
 
 /* App icons. PNG rather than SVG — Chrome on Android does not reliably

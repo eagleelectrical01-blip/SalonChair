@@ -166,6 +166,10 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .mcell.today{box-shadow:inset 0 0 0 2px var(--rose)}
 .mcell.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .mcell.on .cnt{color:#fff}
+.bk.done{opacity:.55}
+.bk.done .seg.active{background:var(--teal)}
+.bk.noshow{opacity:.5}
+.bk.noshow .seg.active{background:repeating-linear-gradient(45deg,var(--muted) 0 6px,#4a4753 6px 12px)}
 .prop{border:1px solid var(--rose);background:var(--rose-soft);border-radius:10px;padding:10px 12px;margin-top:8px;cursor:pointer}
 .badge{display:inline-block;min-width:17px;padding:1px 5px;border-radius:999px;background:var(--rose);color:#fff;
   font-size:10px;font-weight:700;line-height:15px;margin-left:4px}
@@ -1410,7 +1414,7 @@ function renderDay() {
     }
 
     bookings.filter(b => b.stylistId === st.id && b.status !== "cancelled").forEach(b => {
-      const bar = el("div", "bk");
+      const bar = el("div", "bk" + (b.status === "completed" ? " done" : b.status === "no-show" ? " noshow" : ""));
       bar.style.top = ((b.startMin - open) * PX) + "px";
       bar.style.height = (b.totalMins * PX) + "px";
 
@@ -1430,7 +1434,9 @@ function renderDay() {
       });
 
       bar.appendChild(el("div", "lbl",
-        '<span class="mono">' + min2hm(b.startMin) + '</span><br>' + esc(b.clientName) +
+        '<span class="mono">' + min2hm(b.startMin) + '</span>' +
+        (b.status === "completed" ? ' ✓' : b.status === "no-show" ? ' ✕' : '') +
+        '<br>' + esc(b.clientName) +
         (b.clientPhone ? '<br><span class="mono" style="opacity:.85">' + esc(b.clientPhone) + '</span>' : '') +
         '<br>' + esc(b.serviceNames)));
       bar.addEventListener("click", () => bookingSheet(b));
@@ -1443,11 +1449,22 @@ function renderDay() {
   wrap.appendChild(tl);
 
   const live = bookings.filter(b => b.status !== "cancelled");
-  const revenue = live.reduce((a, b) => a + (b.total || 0), 0);
+  const doneList = live.filter(b => b.status === "completed");
+  const noShows = live.filter(b => b.status === "no-show").length;
+  const stillDue = live.filter(b => b.status === "confirmed");
+
+  const taken = doneList.reduce((a, b) => a + (b.paidTotal != null ? b.paidTotal : b.total || 0), 0);
+  const expected = stillDue.reduce((a, b) => a + (b.total || 0), 0);
+
   const sum = el("div", "card");
   sum.style.marginTop = "14px";
-  sum.innerHTML = '<div class="row between"><div><div class="eyebrow">Booked</div><h2>' + live.length + '</h2></div>' +
-    '<div style="text-align:right"><div class="eyebrow">Expected</div><h2 class="mono">' + rands(revenue) + '</h2></div></div>';
+  sum.innerHTML =
+    '<div class="row between">' +
+    '<div><div class="eyebrow">Taken</div><h2 class="mono" style="color:var(--teal)">' + rands(taken) + '</h2>' +
+    '<div class="sm muted">' + doneList.length + ' finished</div></div>' +
+    '<div style="text-align:right"><div class="eyebrow">Still to come</div><h2 class="mono">' + rands(expected) + '</h2>' +
+    '<div class="sm muted">' + stillDue.length + ' booked</div></div></div>' +
+    (noShows ? '<div class="tag rose" style="margin-top:12px">' + noShows + ' no-show' + (noShows > 1 ? 's' : '') + '</div>' : '');
   wrap.appendChild(sum);
 }
 
@@ -1575,6 +1592,8 @@ function bookingSheet(b) {
       ? '<div style="margin-top:8px"><a class="mono" style="color:var(--rose);font-weight:600;font-size:17px;text-decoration:none" href="tel:' + esc(b.clientPhone) + '">' + esc(b.clientPhone) + '</a></div>'
       : '<div class="sm" style="margin-top:8px;color:var(--rose)">No phone number — this client booked before numbers were collected</div>') +
     (b.status === "cancelled" ? '<div class="tag rose" style="margin-top:10px">Cancelled</div>' : '') +
+    (b.status === "completed" ? '<div class="tag teal" style="margin-top:10px">Completed · took ' + rands(b.paidTotal != null ? b.paidTotal : b.total) + (b.payMethod ? ' by ' + esc(b.payMethod) : '') + '</div>' : '') +
+    (b.status === "no-show" ? '<div class="tag rose" style="margin-top:10px">No-show</div>' : '') +
     (b.depositDue ? '<div class="tag ' + (b.depositPaid ? 'teal' : 'rose') + '" style="margin-top:10px">Deposit ' + rands(b.depositDue) + ' ' +
       (b.depositPaid ? 'received' : b.depositClaimed ? 'claimed by client — not confirmed' : 'outstanding') + '</div>' : '') +
     (b.cancelReason ? '<div class="sm" style="margin-top:10px"><b>Reason given:</b> ' + esc(b.cancelReason) + '</div>' : '') +
@@ -1582,7 +1601,38 @@ function bookingSheet(b) {
 
   const closeAll = () => document.querySelectorAll(".sheet").forEach(s => s.remove());
 
-  if (b.status !== "cancelled") {
+  if (b.status === "confirmed") {
+    const done = el("button", "btn rose", "Finish this appointment");
+    done.addEventListener("click", () => { closeAll(); completeSheet(b); });
+    box.appendChild(done);
+
+    const ns = el("button", "btn ghost", "Client did not arrive");
+    ns.style.marginTop = "8px";
+    ns.addEventListener("click", async () => {
+      if (!confirm("Mark " + b.clientName + " as a no-show?" +
+        (b.depositDue && b.depositPaid ? "\n\nThe " + rands(b.depositDue) + " deposit stays with you." : ""))) return;
+      try {
+        await applyBookingPatch(b, { status: "no-show", noShowAt: serverTimestamp(), clientUnread: true });
+        toast("Recorded as a no-show");
+        closeAll(); renderCalendar();
+      } catch (e) { toast("Could not update — " + (e.code || e.message)); }
+    });
+    box.appendChild(ns);
+  }
+
+  if (b.status === "completed" || b.status === "no-show") {
+    const undo = el("button", "btn ghost", "Reopen this appointment");
+    undo.addEventListener("click", async () => {
+      if (!confirm("Put this booking back to confirmed?")) return;
+      try {
+        await applyBookingPatch(b, { status: "confirmed" });
+        toast("Reopened"); closeAll(); renderCalendar();
+      } catch (e) { toast("Could not update — " + (e.code || e.message)); }
+    });
+    box.appendChild(undo);
+  }
+
+  if (b.status !== "cancelled" && b.status !== "completed") {
     const move = el("button", "btn", "Move this booking");
     move.addEventListener("click", () => { closeAll(); rescheduleSheet(b); });
     box.appendChild(move);
@@ -1629,7 +1679,64 @@ function bookingSheet(b) {
   });
   box.appendChild(del);
 
-  sheet("Booking", box, async () => true, "Done");
+  sheet("Booking", box, async () => true, "Close");
+}
+
+/**
+ * Closing off an appointment. The final amount is editable because what a
+ * client actually pays often differs from the quote — extra treatment, a
+ * discount, a longer service. The deposit is subtracted so the figure the
+ * stylist types is the amount still to collect at the till.
+ */
+function completeSheet(b) {
+  const depositHeld = (b.depositDue && b.depositPaid) ? b.depositDue : 0;
+
+  const box = el("div");
+  box.innerHTML =
+    '<div class="card"><h3>' + esc(b.clientName) + '</h3>' +
+    '<div class="sm muted">' + esc(b.serviceNames) + ' with ' + esc(b.stylistName) + '</div></div>' +
+    '<div class="field"><label for="cp-total">Final total charged (R)</label>' +
+    '<input id="cp-total" class="mono" type="number" min="0"></div>' +
+    '<div class="field"><label for="cp-method">Paid by</label>' +
+    '<select id="cp-method"><option>Cash</option><option>Card</option><option>EFT</option><option>Other</option></select></div>' +
+    '<div class="field"><label for="cp-note">Note (optional)</label>' +
+    '<input id="cp-note" placeholder="Added a treatment"></div>';
+
+  const totalIn = box.querySelector("#cp-total");
+  totalIn.value = b.total;
+
+  const owed = el("div", "card");
+  const paintOwed = () => {
+    const final = Number(totalIn.value) || 0;
+    const due = Math.max(0, final - depositHeld);
+    owed.innerHTML =
+      '<div class="row between"><span class="sm muted">Quoted</span><span class="mono">' + rands(b.total) + '</span></div>' +
+      (depositHeld ? '<div class="row between" style="margin-top:4px"><span class="sm muted">Deposit already paid</span><span class="mono">− ' + rands(depositHeld) + '</span></div>' : '') +
+      '<div class="row between" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">' +
+      '<span class="sm" style="font-weight:600">To collect now</span>' +
+      '<span class="mono" style="font-weight:700;font-size:19px;color:var(--rose)">' + rands(due) + '</span></div>';
+  };
+  totalIn.addEventListener("input", paintOwed);
+  paintOwed();
+  box.appendChild(owed);
+
+  sheet("Finish appointment", box, async () => {
+    const final = Number(totalIn.value);
+    if (!isFinite(final) || final < 0) { toast("Enter the amount charged"); return false; }
+    try {
+      await applyBookingPatch(b, {
+        status: "completed",
+        completedAt: serverTimestamp(),
+        paidTotal: final,
+        payMethod: box.querySelector("#cp-method").value,
+        completionNote: box.querySelector("#cp-note").value.trim(),
+        depositPaid: true,
+        clientUnread: true
+      });
+      toast("Appointment closed off");
+      renderCalendar();
+    } catch (e) { toast("Could not save — " + (e.code || e.message)); return false; }
+  }, "Mark as completed");
 }
 
 function rescheduleSheet(b) {
@@ -1772,7 +1879,7 @@ async function refreshRemBadge() {
   if (!badge || !S.salonId) return;
   try {
     const list = (await fetchDayBookings(S.salonId, dayKey(addDays(1))))
-      .filter(b => b.status !== "cancelled" && !b.reminded);
+      .filter(b => b.status === "confirmed" && !b.reminded);
     badge.textContent = String(list.length);
     badge.classList.toggle("hidden", list.length === 0);
   } catch (e) { badge.classList.add("hidden"); }
@@ -1812,7 +1919,7 @@ async function loadReminders() {
     return;
   }
 
-  list = list.filter(b => b.status !== "cancelled").sort((a, b) => a.startMin - b.startMin);
+  list = list.filter(b => b.status === "confirmed").sort((a, b) => a.startMin - b.startMin);
   host.innerHTML = "";
 
   if (!list.length) {
@@ -2797,6 +2904,8 @@ async function loadMyBookings() {
     list.forEach(b => {
       const past = b.dayKey < today;
       const dead = b.status === "cancelled";
+      const finished = b.status === "completed";
+      const missed = b.status === "no-show";
       const c = el("div", "card");
       c.style.opacity = past || dead ? ".62" : "1";
       if (b.clientUnread) c.style.borderColor = "var(--rose)";
@@ -2809,6 +2918,8 @@ async function loadMyBookings() {
         '<div class="sm mono" style="margin-top:6px">' + esc(b.dayKey) + ' · ' + min2hm(b.startMin) + ' – ' + min2hm(b.startMin + b.totalMins) + '</div>' +
         '</div><div class="mono" style="font-weight:600">' + rands(b.total) + '</div></div>' +
         (dead ? '<div class="tag rose" style="margin-top:10px">Cancelled by ' + esc(b.cancelledBy || "salon") + '</div>' : '') +
+        (finished ? '<div class="tag teal" style="margin-top:10px">Completed · ' + rands(b.paidTotal != null ? b.paidTotal : b.total) + '</div>' : '') +
+        (missed ? '<div class="tag rose" style="margin-top:10px">Recorded as a no-show</div>' : '') +
         (b.cancelReason ? '<div class="sm" style="margin-top:8px"><b>Reason:</b> ' + esc(b.cancelReason) + '</div>' : '') +
         (b.changeNote && !dead ? '<div class="sm" style="margin-top:8px"><b>From the salon:</b> ' + esc(b.changeNote) + '</div>' : '') +
         (!dead && b.depositDue ? '<div class="tag rose" style="margin-top:10px">Deposit ' + rands(b.depositDue) + ' ' + (b.depositPaid ? 'paid' : 'due') + '</div>' : '');
@@ -2831,14 +2942,14 @@ async function loadMyBookings() {
         });
       }
 
-      if (!past && !dead && b.depositDue > 0 && !b.depositPaid) {
+      if (!past && !dead && !finished && !missed && b.depositDue > 0 && !b.depositPaid) {
         const pay = el("button", "btn rose sm", b.depositClaimed ? "Deposit details" : "Pay " + rands(b.depositDue) + " deposit");
         pay.style.marginTop = "12px";
         pay.addEventListener("click", () => openPayScreen(b, "s-mine"));
         c.appendChild(pay);
       }
 
-      if (past || dead) {
+      if (past || dead || finished || missed) {
         const rm = el("button", "btn ghost sm", "Remove from my list");
         rm.style.marginTop = "12px";
         rm.addEventListener("click", async () => {
@@ -2852,7 +2963,7 @@ async function loadMyBookings() {
         c.appendChild(rm);
       }
 
-      if (!past && !dead) {
+      if (!past && !dead && !finished && !missed) {
         const x = el("button", "btn ghost sm", "Cancel booking");
         x.style.marginTop = "12px";
         x.addEventListener("click", async () => {

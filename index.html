@@ -477,7 +477,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc,
-  collection, getDocs, query, where, orderBy, serverTimestamp, arrayUnion
+  collection, getDocs, query, where, orderBy, serverTimestamp, arrayUnion, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const app = initializeApp(firebaseConfig);
@@ -864,6 +864,8 @@ onAuthStateChanged(auth, async user => {
   $("tabs-client").classList.add("hidden");
   $("tabs-admin").classList.add("hidden");
   S.isAdmin = false;
+  stopWatchingMonth();
+  stopWatchingMine();
 
   if (!user) { S.uid = null; show("s-auth"); return; }
   S.uid = user.uid;
@@ -970,6 +972,7 @@ async function loadSalonWorkspace() {
   }
 
   if (S.salon.plan !== "active" && S.salon.trialEndsAt && Date.now() > S.salon.trialEndsAt) {
+    stopWatchingMonth();
     await showLocked();
     return;
   }
@@ -1231,26 +1234,65 @@ $("cal-today").addEventListener("click", () => {
 });
 
 /**
- * One query per month, not per day. Two equality filters — Firestore serves
- * these from its automatic single-field indexes, so no composite index is
- * needed and nothing breaks while an index builds.
+ * The calendar listens rather than polls. One live query per month — two
+ * equality filters, so Firestore serves it from automatic single-field
+ * indexes with no composite index. A booking made on a client's phone
+ * appears here within a second, with no refresh.
  */
 const monthKeyOf = k => String(k).slice(0, 7);
 
-async function fetchMonthBookings(salonId, monthDate) {
-  const mk = monthDate.getFullYear() + "-" + String(monthDate.getMonth() + 1).padStart(2, "0");
+let monthUnsub = null;
+let watchedMonth = null;
+let monthLoaded = false;
+
+function stopWatchingMonth() {
+  if (monthUnsub) { try { monthUnsub(); } catch (e) {} }
+  monthUnsub = null;
+  watchedMonth = null;
+  monthLoaded = false;
+}
+
+function watchMonth(mk) {
+  if (watchedMonth === mk && monthUnsub) return;   // already listening
+  stopWatchingMonth();
+  watchedMonth = mk;
+
   const q1 = query(
-    collection(db, "salons", salonId, "bookings"),
+    collection(db, "salons", S.salonId, "bookings"),
     where("ownerUid", "==", S.uid),
     where("monthKey", "==", mk)
   );
-  const snap = await getDocs(q1);
-  const byDay = {};
-  snap.docs.forEach(d => {
-    const b = { id: d.id, ...d.data() };
-    (byDay[b.dayKey] = byDay[b.dayKey] || []).push(b);
+
+  let firstSnapshot = true;
+  monthUnsub = onSnapshot(q1, snap => {
+    const byDay = {};
+    snap.docs.forEach(d => {
+      const b = { id: d.id, ...d.data() };
+      (byDay[b.dayKey] = byDay[b.dayKey] || []).push(b);
+    });
+    S.monthBookings = byDay;
+    monthLoaded = true;
+
+    // announce bookings that arrive while the salon is looking at the screen
+    if (!firstSnapshot) {
+      snap.docChanges().forEach(ch => {
+        if (ch.type !== "added") return;
+        const b = ch.doc.data();
+        if (b.status !== "confirmed") return;
+        toast("New booking · " + b.clientName + " · " + b.dayKey + " " + min2hm(b.startMin));
+      });
+    }
+    firstSnapshot = false;
+
+    if (S.screen === "s-cal" || document.getElementById("s-cal").classList.contains("on")) {
+      renderMonthGrid();
+      renderDay();
+    }
+    syncRemBadge();
+  }, err => {
+    monthLoaded = true;
+    $("cal-month").innerHTML = '<div class="empty">Live updates stopped &mdash; ' + esc(err.code || err.message) + '</div>';
   });
-  return byDay;
 }
 
 /* ─────────── Availability mirror ───────────
@@ -1283,23 +1325,21 @@ async function releaseBusy(salonId, stylistId, key, bookingId) {
   await setDoc(ref, { stylistId, dayKey: key, busy: kept }, { merge: true });
 }
 
-async function renderCalendar() {
-  const mlbl = $("cal-month-lbl");
-  mlbl.textContent = MONTHS[S.calMonth.getMonth()] + " " + S.calMonth.getFullYear();
+function renderCalendar() {
+  $("cal-month-lbl").textContent = MONTHS[S.calMonth.getMonth()] + " " + S.calMonth.getFullYear();
   $("cal-eyebrow").textContent = "Month";
 
-  const grid = $("cal-month");
-  grid.innerHTML = '<div class="spin"></div>';
-
-  try { S.monthBookings = await fetchMonthBookings(S.salonId, S.calMonth); }
-  catch (e) {
-    grid.innerHTML = '<div class="empty">Could not load the month &mdash; ' + esc(e.code || e.message) + '</div>';
+  const mk = S.calMonth.getFullYear() + "-" + String(S.calMonth.getMonth() + 1).padStart(2, "0");
+  const changing = watchedMonth !== mk;
+  if (changing) {
+    $("cal-month").innerHTML = '<div class="spin"></div>';
     $("cal-wrap").innerHTML = "";
-    return;
+    S.monthBookings = {};
   }
+  watchMonth(mk);
 
-  renderMonthGrid();
-  renderDay();
+  // the listener redraws on every snapshot; draw now if data is already in hand
+  if (monthLoaded && !changing) { renderMonthGrid(); renderDay(); }
 }
 
 function renderMonthGrid() {
@@ -1348,12 +1388,12 @@ function monthCell(d, dim, todayK, selK) {
   cell.appendChild(el("div", "n", String(d.getDate())));
   if (list.length) cell.appendChild(el("div", "cnt", String(list.length)));
 
-  cell.addEventListener("click", async () => {
+  cell.addEventListener("click", () => {
     S.calDate = new Date(d);
     // stepping into a neighbouring month reloads that month's bookings
     if (d.getMonth() !== S.calMonth.getMonth() || d.getFullYear() !== S.calMonth.getFullYear()) {
       S.calMonth = new Date(d.getFullYear(), d.getMonth(), 1);
-      await renderCalendar();
+      renderCalendar();
     } else {
       renderMonthGrid();
       renderDay();
@@ -1873,6 +1913,17 @@ function reminderText(b) {
 }
 
 $("rem-refresh").addEventListener("click", () => loadReminders());
+
+/** Cheap path: tomorrow usually sits in the month already being listened to. */
+function syncRemBadge() {
+  const k = dayKey(addDays(1));
+  if (!monthLoaded || monthKeyOf(k) !== watchedMonth) { refreshRemBadge(); return; }
+  const badge = $("rem-badge");
+  if (!badge) return;
+  const n2 = (S.monthBookings[k] || []).filter(b => b.status === "confirmed" && !b.reminded).length;
+  badge.textContent = String(n2);
+  badge.classList.toggle("hidden", n2 === 0);
+}
 
 async function refreshRemBadge() {
   const badge = $("rem-badge");
@@ -2888,15 +2939,32 @@ async function acceptProposal(b, prop) {
   try { await updateDoc(doc(db, "salons", b.salonId, "bookings", b.id), { proposals: [] }); } catch (e) {}
 
   toast("Rebooked for " + prop.dayKey + " at " + min2hm(prop.startMin));
-  loadMyBookings();
 }
 
-async function loadMyBookings() {
+let mineUnsub = null;
+const seenUnread = new Set();
+
+function stopWatchingMine() {
+  if (mineUnsub) { try { mineUnsub(); } catch (e) {} }
+  mineUnsub = null;
+  seenUnread.clear();
+}
+
+/** Listen once; every later change redraws on its own. */
+function loadMyBookings() {
+  if (mineUnsub) return;
   const host = $("mine-list");
   host.innerHTML = '<div class="spin"></div>';
+  mineUnsub = onSnapshot(
+    query(collection(db, "clients", S.uid, "bookings"), orderBy("dayKey", "desc")),
+    snap => renderMyBookings(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    err => { host.innerHTML = '<div class="empty">Could not load your bookings &mdash; ' + esc(err.code || err.message) + '</div>'; }
+  );
+}
+
+async function renderMyBookings(list) {
+  const host = $("mine-list");
   try {
-    const snap = await getDocs(query(collection(db, "clients", S.uid, "bookings"), orderBy("dayKey", "desc")));
-    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     host.innerHTML = "";
     if (!list.length) { host.appendChild(el("div", "empty", "Nothing booked yet. Find a salon near you.")); return; }
 
@@ -2908,11 +2976,13 @@ async function loadMyBookings() {
       const missed = b.status === "no-show";
       const c = el("div", "card");
       c.style.opacity = past || dead ? ".62" : "1";
-      if (b.clientUnread) c.style.borderColor = "var(--rose)";
+      if (b.clientUnread) seenUnread.add(b.id);
+      const flagged = b.clientUnread || seenUnread.has(b.id);
+      if (flagged) c.style.borderColor = "var(--rose)";
 
       c.innerHTML =
         '<div class="row between"><div class="grow">' +
-        '<div class="eyebrow">' + esc(b.salonName) + (b.clientUnread ? ' <span class="tag rose">updated</span>' : '') + '</div>' +
+        '<div class="eyebrow">' + esc(b.salonName) + (flagged ? ' <span class="tag rose">updated</span>' : '') + '</div>' +
         '<h3 style="margin-top:4px">' + esc(b.serviceNames) + '</h3>' +
         '<div class="sm muted">with ' + esc(b.stylistName) + '</div>' +
         '<div class="sm mono" style="margin-top:6px">' + esc(b.dayKey) + ' · ' + min2hm(b.startMin) + ' – ' + min2hm(b.startMin + b.totalMins) + '</div>' +
@@ -2957,7 +3027,6 @@ async function loadMyBookings() {
           try {
             await deleteDoc(doc(db, "clients", S.uid, "bookings", b.id));
             toast("Removed");
-            loadMyBookings();
           } catch (e) { toast("Could not remove — " + (e.code || e.message)); }
         });
         c.appendChild(rm);
@@ -2974,14 +3043,14 @@ async function loadMyBookings() {
           try { await updateDoc(doc(db, "salons", b.salonId, "bookings", b.id), patch); } catch (e) {}
           try { await releaseBusy(b.salonId, b.stylistId, b.dayKey, b.id); } catch (e) {}
           toast("Booking cancelled");
-          loadMyBookings();
         });
         c.appendChild(x);
       }
       host.appendChild(c);
     });
 
-    // opening the screen counts as reading the updates
+    // opening the screen counts as reading the updates. The rose tag stays
+    // visible for this session via seenUnread, so it does not blink away.
     for (const b of list) {
       if (b.clientUnread) {
         try { await updateDoc(doc(db, "clients", S.uid, "bookings", b.id), { clientUnread: false }); } catch (e) {}
@@ -2989,7 +3058,7 @@ async function loadMyBookings() {
     }
     refreshBadge();
   } catch (e) {
-    host.innerHTML = '<div class="empty">Could not load your bookings &mdash; ' + esc(e.code || e.message) + '</div>';
+    host.innerHTML = '<div class="empty">Could not show your bookings &mdash; ' + esc(e.code || e.message) + '</div>';
   }
 }
 

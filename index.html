@@ -343,7 +343,12 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
     </div>
     <div id="sa-dep" class="sm hidden" style="margin-top:12px"></div>
   </div>
-  <h3 style="margin:20px 0 10px">Choose your services</h3>
+  <h3 style="margin:20px 0 6px">Choose your services</h3>
+  <div class="card" style="background:var(--rose-soft);border-color:var(--rose);margin-bottom:14px">
+    <div class="sm"><b>Prices shown are an estimate.</b> The final amount can change on the day —
+    if you add a service, change your mind about the style, or your hair needs more time or product
+    than expected. Your stylist will confirm the price with you before you pay.</div>
+  </div>
   <div id="sa-svcs"></div>
   <div id="sa-bar" class="stickybar hidden">
     <button class="btn rose" id="sa-next"><span id="sa-nextlbl">Continue</span></button>
@@ -1627,7 +1632,8 @@ function bookingSheet(b) {
   box.innerHTML =
     '<div class="card"><h3>' + esc(b.clientName) + '</h3>' +
     '<div class="sm muted">' + esc(b.serviceNames) + ' with ' + esc(b.stylistName) + '</div>' +
-    '<div class="sm mono" style="margin-top:8px">' + esc(when) + ' · ' + rands(b.total) + '</div>' +
+    '<div class="sm mono" style="margin-top:8px">' + esc(when) + ' · ' + rands(b.total) +
+    (b.status === "completed" ? '' : ' <span class="muted">estimate</span>') + '</div>' +
     (b.clientPhone
       ? '<div style="margin-top:8px"><a class="mono" style="color:var(--rose);font-weight:600;font-size:17px;text-decoration:none" href="tel:' + esc(b.clientPhone) + '">' + esc(b.clientPhone) + '</a></div>'
       : '<div class="sm" style="margin-top:8px;color:var(--rose)">No phone number — this client booked before numbers were collected</div>') +
@@ -2783,7 +2789,9 @@ async function openPayScreen(b, backTo) {
     '<span class="sm muted">Service total</span><span class="mono">' + rands(b.total) + '</span></div>' +
     '<div class="row between" style="margin-top:4px">' +
     '<span class="sm muted">Deposit (' + (b.depositPct != null ? b.depositPct : depositPctOf(salon)) + '%)</span>' +
-    '<span class="mono" style="font-weight:700;color:var(--rose)">' + rands(b.depositDue) + '</span></div>';
+    '<span class="mono" style="font-weight:700;color:var(--rose)">' + rands(b.depositDue) + '</span></div>' +
+    '<div class="sm muted" style="margin-top:10px">The service total is an estimate. The deposit is worked out from it, ' +
+    'and the balance is settled at the salon once the stylist confirms the final price.</div>';
   body.appendChild(head);
 
   const hasBank = salon.bankAccNo || salon.bankName;
@@ -2986,7 +2994,9 @@ async function renderMyBookings(list) {
         '<h3 style="margin-top:4px">' + esc(b.serviceNames) + '</h3>' +
         '<div class="sm muted">with ' + esc(b.stylistName) + '</div>' +
         '<div class="sm mono" style="margin-top:6px">' + esc(b.dayKey) + ' · ' + min2hm(b.startMin) + ' – ' + min2hm(b.startMin + b.totalMins) + '</div>' +
-        '</div><div class="mono" style="font-weight:600">' + rands(b.total) + '</div></div>' +
+        '</div><div style="text-align:right"><div class="mono" style="font-weight:600">' +
+        rands(finished && b.paidTotal != null ? b.paidTotal : b.total) + '</div>' +
+        '<div class="sm muted" style="font-size:11px">' + (finished ? 'final' : 'estimate') + '</div></div></div>' +
         (dead ? '<div class="tag rose" style="margin-top:10px">Cancelled by ' + esc(b.cancelledBy || "salon") + '</div>' : '') +
         (finished ? '<div class="tag teal" style="margin-top:10px">Completed · ' + rands(b.paidTotal != null ? b.paidTotal : b.total) + '</div>' : '') +
         (missed ? '<div class="tag rose" style="margin-top:10px">Recorded as a no-show</div>' : '') +
